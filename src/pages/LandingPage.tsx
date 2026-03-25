@@ -23,12 +23,19 @@ const LandingPage = () => {
     try {
       if (isLoginMode) {
         const res = await loginApi({ username, password });
-        localStorage.setItem('token', res.data.token);
-        navigate('/dashboard');
+        // 假设登录成功返回 { token: '...' } 在 data 字段中
+        if (res.data && res.data.token) {
+          localStorage.setItem('token', res.data.token);
+          navigate('/dashboard');
+        } else {
+          setError('服务器未返回 Token');
+        }
       } else {
-        const res = await registerApi({ username, password });
-        localStorage.setItem('token', res.data.token);
-        navigate('/dashboard');
+        await registerApi({ username, password });
+        // 注册成功后，切换到登录模式并提示用户
+        alert('注册成功，请登录！');
+        setIsLoginMode(true);
+        setPassword('');
       }
     } catch (err: any) {
       setError(err.message || '操作失败，请重试');

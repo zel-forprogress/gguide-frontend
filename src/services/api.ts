@@ -1,59 +1,45 @@
 import axios from 'axios';
 
-// 模拟数据库
-const users = [
-  {
-    id: 1,
-    username: 'admin',
-    password: 'admin123',
-  },
-];
+// 配置 Axios 实例，指向你的 Spring Boot 后端地址
+const api = axios.create({
+  baseURL: 'http://localhost:8080', // 如果你的 Spring Boot 运行在不同端口，请修改这里
+  timeout: 5000,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
 
-// 模拟 API 延迟
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+// 定义统一的返回结构，对应后端的 ResultVO
+export interface ResultVO<T> {
+  code: number;
+  message: string;
+  data: T;
+}
 
-// 模拟登录接口
+// 模拟 API 延迟 (可选，开发调试用)
+// const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// 登录接口
 export const loginApi = async (data: any) => {
-  await sleep(500);
-  const { username, password } = data;
-  const user = users.find(u => u.username === username && u.password === password);
-
-  if (user) {
-    return Promise.resolve({
-      code: 200,
-      message: '登录成功',
-      data: { token: `fake-token-for-${username}` },
-    });
-  } else {
-    return Promise.reject({
-      code: 401,
-      message: '用户名或密码错误',
-    });
+  try {
+    const response = await api.post<ResultVO<any>>('/api/auth/login', data);
+    return response.data;
+  } catch (error: any) {
+    // 处理 Axios 错误（例如 401, 400 等）
+    const message = error.response?.data?.message || error.response?.data?.error || '登录失败';
+    throw new Error(message);
   }
 };
 
-// 模拟注册接口
+// 注册接口
 export const registerApi = async (data: any) => {
-  await sleep(500);
-  const { username, password } = data;
-
-  if (users.some(u => u.username === username)) {
-    return Promise.reject({
-      code: 400,
-      message: '用户名已存在',
-    });
+  try {
+    const response = await api.post<ResultVO<any>>('/api/auth/register', data);
+    return response.data;
+  } catch (error: any) {
+    const message = error.response?.data?.message || error.response?.data?.error || '注册失败';
+    throw new Error(message);
   }
-
-  const newUser = {
-    id: users.length + 1,
-    username,
-    password,
-  };
-  users.push(newUser);
-
-  return Promise.resolve({
-    code: 200,
-    message: '注册成功',
-    data: { token: `fake-token-for-${username}` },
-  });
 };
+
+export default api;
