@@ -6,6 +6,108 @@
   --border-color: #f0f0f0;
 }
 
+/* Welcome Page Styles */
+.welcome-page {
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+  background-color: #000;
+  overflow: hidden;
+  position: relative;
+}
+
+.welcome-nav {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 60px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
+  z-index: 100;
+}
+
+.welcome-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #fff;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.nav-auth-btns {
+  display: flex;
+  gap: 20px;
+}
+
+.btn-login-entry {
+  padding: 10px 24px;
+  border-radius: 25px;
+  border: 1px solid rgba(255,255,255,0.5);
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  backdrop-filter: blur(5px);
+}
+
+.btn-login-entry:hover {
+  background: #fff;
+  color: #000;
+  border-color: #fff;
+}
+
+.swiper-container {
+  width: 100%;
+  height: 100%;
+}
+
+.swiper-slide {
+  position: relative;
+}
+
+.slide-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: brightness(0.6);
+}
+
+.slide-content {
+  position: absolute;
+  bottom: 15%;
+  left: 60px;
+  text-align: left;
+  color: #fff;
+  max-width: 600px;
+  animation: slideUp 1s ease-out;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(40px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.slide-title {
+  font-size: 64px;
+  font-weight: 800;
+  margin-bottom: 16px;
+  text-shadow: 0 4px 10px rgba(0,0,0,0.5);
+}
+
+.slide-desc {
+  font-size: 20px;
+  opacity: 0.9;
+  line-height: 1.6;
+  text-shadow: 0 2px 5px rgba(0,0,0,0.5);
+}
+
 /* Landing Page Styles */
 .landing-page {
   height: 100vh;

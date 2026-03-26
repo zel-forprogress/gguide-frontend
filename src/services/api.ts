@@ -42,4 +42,36 @@ export const registerApi = async (data: any) => {
   }
 };
 
+// 获取热门游戏接口 (目前为模拟，方便以后对接 SpringBoot + MongoDB)
+export const getHotGamesApi = async () => {
+  // 模拟网络延迟
+  await new Promise(resolve => setTimeout(resolve, 800));
+  
+  // 模拟从数据库返回的数据格式
+  return {
+    code: 200,
+    message: '获取成功',
+    data: [
+      {
+        id: '1',
+        title: '艾尔登法环',
+        desc: '在破碎的交界地，开启一段史诗般的成王之旅。',
+        image: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=2070&auto=format&fit=crop'
+      },
+      {
+        id: '2',
+        title: '赛博朋克 2077',
+        desc: '进入夜之城，在霓虹灯火中改写你的命运。',
+        image: 'https://images.unsplash.com/photo-1605898960710-99435860e653?q=80&w=2070&auto=format&fit=crop'
+      },
+      {
+        id: '3',
+        title: '战神：诸神黄昏',
+        desc: '奎托斯与阿特柔斯再次踏上跨越九界的冒险。',
+        image: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?q=80&w=2071&auto=format&fit=crop'
+      }
+    ]
+  };
+};
+
 export default api;

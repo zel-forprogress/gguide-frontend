@@ -4,8 +4,10 @@ const Dashboard = () => {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    // 模拟退出，跳转到登录页
-    navigate('/');
+    // 1. 清除本地存储的 token
+    localStorage.removeItem('token');
+    // 2. 跳转到根路径（欢迎页）
+    navigate('/', { replace: true });
   };
 
   return (
