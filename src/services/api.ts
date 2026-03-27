@@ -9,6 +9,38 @@ const api = axios.create({
   }
 });
 
+// 请求拦截器：在每个请求中自动注入 JWT Token
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      // 这里的 'Bearer ' 前缀是 JWT 的标准写法
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// 响应拦截器：统一处理错误（例如 401 未授权）
+api.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      // 如果后端返回 401，说明 token 可能已过期或无效
+      console.warn('登录已过期，请重新登录');
+      localStorage.removeItem('token');
+      // 跳转到登录页 (注意：如果在 React 组件外，可以使用 window.location)
+      window.location.href = '/auth';
+    }
+    return Promise.reject(error);
+  }
+);
+
 // 定义统一的返回结构，对应后端的 ResultVO
 export interface ResultVO<T> {
   code: number;
