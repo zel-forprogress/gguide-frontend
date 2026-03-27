@@ -1,8 +1,7 @@
 import type { RouteObject } from 'react-router-dom';
-import WelcomePage from '../pages/WelcomePage';
 import LandingPage from '../pages/LandingPage';
 import Dashboard from '../pages/Dashboard';
-import ProtectedRoute from './ProtectedRoute';
+import GameDetailPage from '../pages/GameDetailPage';
 import PublicRoute from './PublicRoute';
 
 /**
@@ -12,7 +11,7 @@ import PublicRoute from './PublicRoute';
 const routes: RouteObject[] = [
   {
     path: '/',
-    element: <WelcomePage />,
+    element: <Dashboard />,
   },
   {
     path: '/auth',
@@ -24,13 +23,13 @@ const routes: RouteObject[] = [
   },
   {
     path: '/dashboard',
-    element: (
-      <ProtectedRoute>
-        <Dashboard />
-      </ProtectedRoute>
-    ),
+    element: <Dashboard />,
   },
   // 如果需要处理 404，可以在这里添加
+  {
+    path: '/games/:id',
+    element: <GameDetailPage />,
+  },
   {
     path: '*',
     element: <div style={{ padding: '20px', textAlign: 'center' }}>404 Not Found</div>,

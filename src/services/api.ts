@@ -48,18 +48,33 @@ export interface ResultVO<T> {
   data: T;
 }
 
-// 模拟 API 延迟 (可选，开发调试用)
-// const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+// 对应后端的 GameDTO
+export interface Game {
+  id: string;
+  title: string;
+  description: string;
+  coverImage: string; // 注意：字段名从 imageUrl 变为 coverImage
+  rating: number;
+  category: string;
+  releaseDate: string; // 后端 Instant 类型通常序列化为 ISO 字符串
+  cinematicTrailer?: string;
+  downloadLink?: string;
+}
 
 // 登录接口
 export const loginApi = async (data: any) => {
   try {
     const response = await api.post<ResultVO<any>>('/api/auth/login', data);
-    return response.data;
+    // 后端返回的是 ResultVO { code, message, data: { token: '...' } }
+    if (response.data.code === 200 && response.data.data?.token) {
+      return response.data;
+    }
+    throw new Error(response.data.message || '登录失败');
   } catch (error: any) {
-    // 处理 Axios 错误（例如 401, 400 等）
-    const message = error.response?.data?.message || error.response?.data?.error || '登录失败';
-    throw new Error(message);
+    if (error.response) {
+      throw new Error(error.response.data?.message || '服务器错误');
+    }
+    throw error;
   }
 };
 
@@ -104,6 +119,34 @@ export const getHotGamesApi = async () => {
       }
     ]
   };
+};
+
+/**
+ * 获取所有游戏数据
+ * 对应后端接口: GET /api/games
+ */
+export const getGamesApi = async () => {
+  try {
+    const response = await api.get<ResultVO<Game[]>>('/api/games');
+    return response.data;
+  } catch (error: any) {
+    const message = error.response?.data?.message || '获取游戏列表失败';
+    throw new Error(message);
+  }
+};
+
+/**
+ * 根据 ID 获取游戏详情
+ * 对应后端接口: GET /api/games/{id}
+ */
+export const getGameDetailApi = async (id: string) => {
+  try {
+    const response = await api.get<ResultVO<Game>>(`/api/games/${id}`);
+    return response.data;
+  } catch (error: any) {
+    const message = error.response?.data?.message || '获取游戏详情失败';
+    throw new Error(message);
+  }
 };
 
 export default api;

@@ -12,7 +12,7 @@ const PublicRoute = ({ children }: PublicRouteProps) => {
   if (token) {
     // 如果有 token，重定向到 dashboard
     // 这可以防止已登录用户再次访问登录/注册页面
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/" replace />;
   }
 
   // 如果没有 token，允许访问子组件（例如登录页）
