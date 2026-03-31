@@ -1,151 +1,159 @@
 import axios from 'axios';
 
-// 配置 Axios 实例，指向你的 Spring Boot 后端地址
 const api = axios.create({
-  baseURL: 'http://localhost:8080', // 如果你的 Spring Boot 运行在不同端口，请修改这里
+  baseURL: 'http://localhost:8080',
   timeout: 5000,
   headers: {
-    'Content-Type': 'application/json'
-  }
+    'Content-Type': 'application/json',
+  },
 });
 
-// 请求拦截器：在每个请求中自动注入 JWT Token
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
-      // 这里的 'Bearer ' 前缀是 JWT 的标准写法
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// 响应拦截器：统一处理错误（例如 401 未授权）
 api.interceptors.response.use(
-  (response) => {
-    return response;
-  },
+  (response) => response,
   (error) => {
-    if (error.response && error.response.status === 401) {
-      // 如果后端返回 401，说明 token 可能已过期或无效
-      console.warn('登录已过期，请重新登录');
+    if (error.response?.status === 401) {
       localStorage.removeItem('token');
-      // 跳转到登录页 (注意：如果在 React 组件外，可以使用 window.location)
       window.location.href = '/auth';
     }
     return Promise.reject(error);
   }
 );
 
-// 定义统一的返回结构，对应后端的 ResultVO
 export interface ResultVO<T> {
   code: number;
   message: string;
   data: T;
 }
 
-// 对应后端的 GameDTO
 export interface Game {
   id: string;
   title: string;
   description: string;
-  coverImage: string; // 注意：字段名从 imageUrl 变为 coverImage
+  coverImage: string;
   rating: number;
   category: string;
-  releaseDate: string; // 后端 Instant 类型通常序列化为 ISO 字符串
+  releaseDate: string;
   cinematicTrailer?: string;
   downloadLink?: string;
 }
 
-// 登录接口
-export const loginApi = async (data: any) => {
+const getErrorMessage = (error: any, fallback: string) =>
+  error.response?.data?.message || error.response?.data?.error || fallback;
+
+export const loginApi = async (data: { username: string; password: string }) => {
   try {
-    const response = await api.post<ResultVO<any>>('/api/auth/login', data);
-    // 后端返回的是 ResultVO { code, message, data: { token: '...' } }
+    const response = await api.post<ResultVO<{ token: string }>>('/api/auth/login', data);
     if (response.data.code === 200 && response.data.data?.token) {
       return response.data;
     }
-    throw new Error(response.data.message || '登录失败');
+    throw new Error(response.data.message || 'Login failed');
   } catch (error: any) {
-    if (error.response) {
-      throw new Error(error.response.data?.message || '服务器错误');
-    }
-    throw error;
+    throw new Error(getErrorMessage(error, 'Login failed'));
   }
 };
 
-// 注册接口
-export const registerApi = async (data: any) => {
+export const registerApi = async (data: { username: string; password: string }) => {
   try {
-    const response = await api.post<ResultVO<any>>('/api/auth/register', data);
+    const response = await api.post<ResultVO<string>>('/api/auth/register', data);
     return response.data;
   } catch (error: any) {
-    const message = error.response?.data?.message || error.response?.data?.error || '注册失败';
-    throw new Error(message);
+    throw new Error(getErrorMessage(error, 'Register failed'));
   }
 };
 
-// 获取热门游戏接口 (目前为模拟，方便以后对接 SpringBoot + MongoDB)
 export const getHotGamesApi = async () => {
-  // 模拟网络延迟
-  await new Promise(resolve => setTimeout(resolve, 800));
-  
-  // 模拟从数据库返回的数据格式
+  await new Promise((resolve) => setTimeout(resolve, 800));
   return {
     code: 200,
-    message: '获取成功',
+    message: 'success',
     data: [
       {
         id: '1',
-        title: '艾尔登法环',
-        desc: '在破碎的交界地，开启一段史诗般的成王之旅。',
-        image: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=2070&auto=format&fit=crop'
+        title: 'Elden Ring',
+        desc: 'Step into a fractured realm and shape your legend.',
+        image:
+          'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=2070&auto=format&fit=crop',
       },
       {
         id: '2',
-        title: '赛博朋克 2077',
-        desc: '进入夜之城，在霓虹灯火中改写你的命运。',
-        image: 'https://images.unsplash.com/photo-1605898960710-99435860e653?q=80&w=2070&auto=format&fit=crop'
+        title: 'Cyberpunk 2077',
+        desc: 'Chase your future through a neon-soaked city.',
+        image:
+          'https://images.unsplash.com/photo-1605898960710-99435860e653?q=80&w=2070&auto=format&fit=crop',
       },
       {
         id: '3',
-        title: '战神：诸神黄昏',
-        desc: '奎托斯与阿特柔斯再次踏上跨越九界的冒险。',
-        image: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?q=80&w=2071&auto=format&fit=crop'
-      }
-    ]
+        title: 'God of War Ragnarok',
+        desc: 'Travel across the realms with Kratos and Atreus.',
+        image:
+          'https://images.unsplash.com/photo-1511512578047-dfb367046420?q=80&w=2071&auto=format&fit=crop',
+      },
+    ],
   };
 };
 
-/**
- * 获取所有游戏数据
- * 对应后端接口: GET /api/games
- */
 export const getGamesApi = async () => {
   try {
     const response = await api.get<ResultVO<Game[]>>('/api/games');
     return response.data;
   } catch (error: any) {
-    const message = error.response?.data?.message || '获取游戏列表失败';
-    throw new Error(message);
+    throw new Error(getErrorMessage(error, 'Failed to load games'));
   }
 };
 
-/**
- * 根据 ID 获取游戏详情
- * 对应后端接口: GET /api/games/{id}
- */
 export const getGameDetailApi = async (id: string) => {
   try {
     const response = await api.get<ResultVO<Game>>(`/api/games/${id}`);
     return response.data;
   } catch (error: any) {
-    const message = error.response?.data?.message || '获取游戏详情失败';
-    throw new Error(message);
+    throw new Error(getErrorMessage(error, 'Failed to load game detail'));
+  }
+};
+
+export const getFavoritesApi = async () => {
+  try {
+    const response = await api.get<ResultVO<Game[]>>('/api/favorites');
+    return response.data;
+  } catch (error: any) {
+    throw new Error(getErrorMessage(error, 'Failed to load favorites'));
+  }
+};
+
+export const getFavoriteStatusApi = async (gameId: string) => {
+  try {
+    const response = await api.get<ResultVO<boolean>>(`/api/favorites/${gameId}/status`);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(getErrorMessage(error, 'Failed to load favorite status'));
+  }
+};
+
+export const addFavoriteApi = async (gameId: string) => {
+  try {
+    const response = await api.post<ResultVO<boolean>>(`/api/favorites/${gameId}`);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(getErrorMessage(error, 'Failed to add favorite'));
+  }
+};
+
+export const removeFavoriteApi = async (gameId: string) => {
+  try {
+    const response = await api.delete<ResultVO<boolean>>(`/api/favorites/${gameId}`);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(getErrorMessage(error, 'Failed to remove favorite'));
   }
 };
 

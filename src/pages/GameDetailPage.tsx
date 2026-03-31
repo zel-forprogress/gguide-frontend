@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getGameDetailApi, type Game } from '../services/api';
+import FavoriteButton from '../components/FavoriteButton';
+import {
+  addFavoriteApi,
+  getFavoriteStatusApi,
+  getGameDetailApi,
+  removeFavoriteApi,
+  type Game,
+} from '../services/api';
 
 const formatReleaseDate = (releaseDate?: string) => {
   if (!releaseDate) {
@@ -26,8 +33,11 @@ const formatRating = (rating?: number) => {
 const GameDetailPage = () => {
   const navigate = useNavigate();
   const { id } = useParams();
+  const isLoggedIn = Boolean(localStorage.getItem('token'));
   const [game, setGame] = useState<Game | null>(null);
   const [loading, setLoading] = useState(true);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -43,14 +53,26 @@ const GameDetailPage = () => {
       try {
         setLoading(true);
         setError('');
-        const res = await getGameDetailApi(id);
-        if (!cancelled) {
-          if (res.code === 200 && res.data) {
-            setGame(res.data);
-            return;
-          }
 
-          setError(res.message || '获取游戏详情失败');
+        const [gameResponse, favoriteResponse] = await Promise.all([
+          getGameDetailApi(id),
+          isLoggedIn ? getFavoriteStatusApi(id) : Promise.resolve(null),
+        ]);
+
+        if (cancelled) {
+          return;
+        }
+
+        if (gameResponse.code === 200 && gameResponse.data) {
+          setGame(gameResponse.data);
+        } else {
+          setError(gameResponse.message || '获取游戏详情失败');
+        }
+
+        if (favoriteResponse?.code === 200) {
+          setIsFavorite(Boolean(favoriteResponse.data));
+        } else if (!isLoggedIn) {
+          setIsFavorite(false);
         }
       } catch (err: any) {
         if (!cancelled) {
@@ -68,10 +90,36 @@ const GameDetailPage = () => {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, isLoggedIn]);
 
   const handleBackToDashboard = () => {
-    navigate('/dashboard');
+    navigate('/');
+  };
+
+  const handleToggleFavorite = async () => {
+    if (!game) {
+      return;
+    }
+
+    if (!isLoggedIn) {
+      navigate('/auth');
+      return;
+    }
+
+    try {
+      setFavoriteLoading(true);
+      if (isFavorite) {
+        await removeFavoriteApi(game.id);
+        setIsFavorite(false);
+      } else {
+        await addFavoriteApi(game.id);
+        setIsFavorite(true);
+      }
+    } catch (err: any) {
+      window.alert(err.message || '收藏操作失败');
+    } finally {
+      setFavoriteLoading(false);
+    }
   };
 
   if (loading) {
@@ -79,7 +127,7 @@ const GameDetailPage = () => {
       <div className="game-detail-page">
         <div className="detail-shell">
           <button className="detail-back-btn" onClick={handleBackToDashboard}>
-            返回广场
+            返回首页
           </button>
           <div className="detail-feedback-card">
             <div className="detail-loader"></div>
@@ -95,11 +143,11 @@ const GameDetailPage = () => {
       <div className="game-detail-page">
         <div className="detail-shell">
           <button className="detail-back-btn" onClick={handleBackToDashboard}>
-            返回广场
+            返回首页
           </button>
           <div className="detail-feedback-card detail-feedback-error">
             <h2>没有找到这款游戏</h2>
-            <p>{error || '当前游戏详情不存在或暂时不可用。'}</p>
+            <p>{error || '当前游戏详情不可用。'}</p>
             <div className="detail-actions">
               <button className="detail-primary-btn" onClick={handleBackToDashboard}>
                 返回游戏列表
@@ -121,13 +169,13 @@ const GameDetailPage = () => {
         style={{
           backgroundImage: game.coverImage
             ? `linear-gradient(135deg, rgba(8, 6, 13, 0.8), rgba(255, 77, 79, 0.18)), url(${game.coverImage})`
-            : undefined
+            : undefined,
         }}
       />
       <div className="detail-shell">
         <div className="detail-toolbar">
           <button className="detail-back-btn" onClick={handleBackToDashboard}>
-            返回广场
+            返回首页
           </button>
           <div className="detail-toolbar-caption">G-Guide / 游戏详情</div>
         </div>
@@ -144,7 +192,9 @@ const GameDetailPage = () => {
           <div className="detail-copy">
             <span className="detail-kicker">{game.category || '未分类'}</span>
             <h1 className="detail-title">{game.title}</h1>
-            <p className="detail-summary">{game.description || '这款游戏暂时还没有详细介绍。'}</p>
+            <p className="detail-summary">
+              {game.description || '这款游戏暂时还没有补充详细介绍。'}
+            </p>
 
             <div className="detail-badges">
               <span className="detail-badge detail-badge-accent">{formatRating(game.rating)}</span>
@@ -168,6 +218,11 @@ const GameDetailPage = () => {
             </div>
 
             <div className="detail-actions">
+              <FavoriteButton
+                active={isFavorite}
+                loading={favoriteLoading}
+                onClick={() => void handleToggleFavorite()}
+              />
               {game.downloadLink ? (
                 <a
                   className="detail-primary-btn"
@@ -192,13 +247,17 @@ const GameDetailPage = () => {
                 返回列表
               </button>
             </div>
+
+            {!isLoggedIn ? (
+              <p className="detail-login-tip">登录后可以把这款游戏加入你的个人收藏夹。</p>
+            ) : null}
           </div>
         </section>
 
         <section className="detail-content-grid">
           <article className="detail-panel">
             <h2>游戏简介</h2>
-            <p>{game.description || '这款游戏暂时还没有详细介绍。'}</p>
+            <p>{game.description || '这款游戏暂时还没有补充详细介绍。'}</p>
           </article>
 
           <aside className="detail-panel detail-panel-side">
