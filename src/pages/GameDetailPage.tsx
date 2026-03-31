@@ -5,9 +5,11 @@ import {
   addFavoriteApi,
   getFavoriteStatusApi,
   getGameDetailApi,
+  recordRecentViewApi,
   removeFavoriteApi,
   type Game,
 } from '../services/api';
+import { saveRecentViewLocally } from '../utils/recentViews';
 
 const formatReleaseDate = (releaseDate?: string) => {
   if (!releaseDate) {
@@ -85,12 +87,27 @@ const GameDetailPage = () => {
       }
     };
 
-    fetchGameDetail();
+    void fetchGameDetail();
 
     return () => {
       cancelled = true;
     };
   }, [id, isLoggedIn]);
+
+  useEffect(() => {
+    if (!game?.id) {
+      return;
+    }
+
+    if (isLoggedIn) {
+      void recordRecentViewApi(game.id).catch((err) => {
+        console.error('Failed to record recent view', err);
+      });
+      return;
+    }
+
+    saveRecentViewLocally(game.id);
+  }, [game?.id, isLoggedIn]);
 
   const handleBackToDashboard = () => {
     navigate('/');
@@ -249,7 +266,9 @@ const GameDetailPage = () => {
             </div>
 
             {!isLoggedIn ? (
-              <p className="detail-login-tip">登录后可以把这款游戏加入你的个人收藏夹。</p>
+              <p className="detail-login-tip">
+                游客模式下也会记录最近查看；登录后还可以同步收藏和浏览记录。
+              </p>
             ) : null}
           </div>
         </section>

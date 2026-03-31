@@ -7,14 +7,16 @@ import {
   addFavoriteApi,
   getFavoritesApi,
   getGamesApi,
+  getRecentlyViewedApi,
   removeFavoriteApi,
   type Game,
 } from '../services/api';
+import { getRecentViewIdsLocally } from '../utils/recentViews';
 
 import 'swiper/css';
 import 'swiper/css/pagination';
 
-type DashboardView = 'home' | 'favorites';
+type DashboardView = 'home' | 'recent' | 'favorites';
 
 const formatReleaseDate = (releaseDate?: string) => {
   if (!releaseDate) {
@@ -36,8 +38,10 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [games, setGames] = useState<Game[]>([]);
   const [favoriteGames, setFavoriteGames] = useState<Game[]>([]);
+  const [recentGames, setRecentGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const [favoritesLoading, setFavoritesLoading] = useState(false);
+  const [recentLoading, setRecentLoading] = useState(false);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('全部');
@@ -63,7 +67,7 @@ const Dashboard = () => {
       }
     };
 
-    fetchGames();
+    void fetchGames();
   }, []);
 
   useEffect(() => {
@@ -86,8 +90,44 @@ const Dashboard = () => {
       }
     };
 
-    fetchFavorites();
+    void fetchFavorites();
   }, [isLoggedIn]);
+
+  useEffect(() => {
+    const fetchRecentlyViewed = async () => {
+      if (isLoggedIn) {
+        try {
+          setRecentLoading(true);
+          const res = await getRecentlyViewedApi();
+          if (res.code === 200) {
+            setRecentGames(res.data || []);
+          }
+        } catch (err) {
+          console.error('Failed to load recently viewed games', err);
+        } finally {
+          setRecentLoading(false);
+        }
+        return;
+      }
+
+      if (games.length === 0) {
+        setRecentGames([]);
+        setRecentLoading(false);
+        return;
+      }
+
+      const recentIds = getRecentViewIdsLocally();
+      const gameMap = new Map(games.map((game) => [game.id, game]));
+      const nextRecentGames = recentIds
+        .map((gameId) => gameMap.get(gameId))
+        .filter((game): game is Game => Boolean(game));
+
+      setRecentGames(nextRecentGames);
+      setRecentLoading(false);
+    };
+
+    void fetchRecentlyViewed();
+  }, [games, isLoggedIn]);
 
   const favoriteIds = useMemo(
     () => favoriteGames.map((game) => game.id),
@@ -143,9 +183,25 @@ const Dashboard = () => {
     );
   }, [favoriteGames, searchTerm]);
 
+  const filteredRecentGames = useMemo(() => {
+    const keyword = searchTerm.trim().toLowerCase();
+    if (!keyword) {
+      return recentGames;
+    }
+
+    return recentGames.filter((game) =>
+      [game.title, game.description, game.category]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(keyword)
+    );
+  }, [recentGames, searchTerm]);
+
   const handleLogout = () => {
     localStorage.removeItem('token');
     setFavoriteGames([]);
+    setRecentGames([]);
     setActiveView('home');
     navigate('/', { replace: true });
   };
@@ -197,59 +253,113 @@ const Dashboard = () => {
     }
   };
 
-  const renderGameGrid = (list: Game[]) => {
+  const renderGameGrid = (list: Game[]) => (
+    <div className="game-grid">
+      {list.map((game) => (
+        <article
+          key={game.id}
+          className="game-card"
+          onClick={() => handleOpenGameDetail(game.id)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              handleOpenGameDetail(game.id);
+            }
+          }}
+          role="button"
+          tabIndex={0}
+        >
+          <div className="game-image">
+            {game.coverImage ? (
+              <img src={game.coverImage} alt={game.title} className="game-cover-image" />
+            ) : (
+              <div className="game-cover-fallback">G-Guide</div>
+            )}
+
+            <div className="game-card-actions">
+              <FavoriteButton
+                compact
+                active={favoriteIds.includes(game.id)}
+                loading={pendingFavoriteIds.includes(game.id)}
+                onClick={(event) => handleFavoriteClick(game, event)}
+              />
+            </div>
+          </div>
+
+          <div className="game-info">
+            <div className="game-card-meta">
+              <span className="game-category-tag">{game.category || '未分类'}</span>
+              <span className="game-rating-tag">
+                {typeof game.rating === 'number' ? game.rating.toFixed(1) : 'N/A'}
+              </span>
+            </div>
+            <div className="game-name">{game.title}</div>
+            <div className="game-desc">
+              {game.description || '这款游戏暂时还没有补充简介。'}
+            </div>
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+
+  const renderLibrarySection = (
+    title: string,
+    subtitle: string,
+    list: Game[],
+    options?: {
+      loading?: boolean;
+      emptyTitle?: string;
+      emptyDescription?: string;
+      guestTitle?: string;
+      guestDescription?: string;
+      showGuestLogin?: boolean;
+    }
+  ) => {
+    if (options?.loading) {
+      return (
+        <div className="state-panel">
+          <div className="loader" style={{ margin: '0 auto', borderTopColor: '#1890ff' }}></div>
+          <p style={{ marginTop: '16px', color: '#666' }}>正在加载内容...</p>
+        </div>
+      );
+    }
+
+    if (!isLoggedIn && options?.showGuestLogin) {
+      return (
+        <div className="favorites-empty">
+          <h3>{options.guestTitle || '登录后可同步数据'}</h3>
+          <p>{options.guestDescription || '登录后你可以在不同设备之间同步这些内容。'}</p>
+          <button className="guest-banner-btn" onClick={handleOpenAuthPage}>
+            去登录 / 注册
+          </button>
+        </div>
+      );
+    }
+
+    if (list.length === 0) {
+      return (
+        <div className="favorites-empty">
+          <h3>{options?.emptyTitle || '这里还是空的'}</h3>
+          <p>{options?.emptyDescription || '回到首页继续逛一逛，很快这里就会有内容。'}</p>
+          <button className="guest-banner-btn" onClick={() => setActiveView('home')}>
+            返回首页继续逛
+          </button>
+        </div>
+      );
+    }
+
     return (
-      <div className="game-grid">
-        {list.map((game) => (
-          <article
-            key={game.id}
-            className="game-card"
-            onClick={() => handleOpenGameDetail(game.id)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                handleOpenGameDetail(game.id);
-              }
-            }}
-            role="button"
-            tabIndex={0}
-          >
-            <div className="game-image">
-              {game.coverImage ? (
-                <img
-                  src={game.coverImage}
-                  alt={game.title}
-                  className="game-cover-image"
-                />
-              ) : (
-                <div className="game-cover-fallback">G-Guide</div>
-              )}
-
-              <div className="game-card-actions">
-                <FavoriteButton
-                  compact
-                  active={favoriteIds.includes(game.id)}
-                  loading={pendingFavoriteIds.includes(game.id)}
-                  onClick={(event) => handleFavoriteClick(game, event)}
-                />
-              </div>
-            </div>
-
-            <div className="game-info">
-              <div className="game-card-meta">
-                <span className="game-category-tag">{game.category || '未分类'}</span>
-                <span className="game-rating-tag">
-                  {typeof game.rating === 'number' ? game.rating.toFixed(1) : 'N/A'}
-                </span>
-              </div>
-              <div className="game-name">{game.title}</div>
-              <div className="game-desc">
-                {game.description || '这款游戏暂时还没有补充简介。'}
-              </div>
-            </div>
-          </article>
-        ))}
-      </div>
+      <section className="favorites-section">
+        <div className="favorites-head">
+          <div>
+            <span className="recommendation-kicker">MY LIBRARY</span>
+            <h2 className="recommendation-title">{title}</h2>
+          </div>
+          <p className="recommendation-subtitle">{subtitle}</p>
+        </div>
+        {renderGameGrid(list)}
+      </section>
     );
   };
 
@@ -284,7 +394,10 @@ const Dashboard = () => {
             首页
           </div>
 
-          <div className="nav-item nav-item-muted">
+          <div
+            className={`nav-item${activeView === 'recent' ? ' active' : ''}`}
+            onClick={() => setActiveView('recent')}
+          >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="10"></circle>
               <polyline points="12 6 12 12 16 14"></polyline>
@@ -330,7 +443,11 @@ const Dashboard = () => {
             <input
               type="text"
               placeholder={
-                activeView === 'favorites' ? '搜索收藏的游戏' : '搜索游戏、分类或亮点'
+                activeView === 'favorites'
+                  ? '搜索收藏的游戏'
+                  : activeView === 'recent'
+                    ? '搜索最近查看的游戏'
+                    : '搜索游戏、分类或亮点'
               }
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
@@ -368,8 +485,8 @@ const Dashboard = () => {
                 </h1>
                 <p style={{ color: '#666', textAlign: 'left' }}>
                   {isLoggedIn
-                    ? '今天的推荐、收藏和详情页都已经准备好了，继续往下看看有没有新的心动选择。'
-                    : '你现在可以直接以游客身份浏览游戏内容，想同步收藏或管理个人偏好时再登录。'}
+                    ? '今天的推荐、收藏和最近查看都已经准备好了，继续往下看看有没有新的心动选择。'
+                    : '你现在可以直接以游客身份浏览游戏内容，想同步收藏或最近查看时再登录。'}
                 </p>
               </div>
 
@@ -377,7 +494,7 @@ const Dashboard = () => {
                 <div className="guest-banner">
                   <div>
                     <strong>当前为游客浏览模式</strong>
-                    <p>你可以先看列表和详情，登录后再使用收藏、历史记录等个人能力。</p>
+                    <p>你可以先看列表和详情，登录后再同步收藏、最近查看等个人能力。</p>
                   </div>
                   <button className="guest-banner-btn" onClick={handleOpenAuthPage}>
                     去登录
@@ -388,7 +505,7 @@ const Dashboard = () => {
               <div className="quick-start" style={{ justifyContent: 'flex-start', marginBottom: '32px' }}>
                 <button className="quick-btn" onClick={isLoggedIn ? undefined : handleOpenAuthPage}>
                   <span style={{ color: '#1890ff' }}>{isLoggedIn ? '+' : '>'}</span>
-                  {isLoggedIn ? '新建游戏档案' : '登录后同步收藏'}
+                  {isLoggedIn ? '同步最近查看' : '登录后同步记录'}
                 </button>
                 <button className="quick-btn">今日推荐</button>
                 <button className="quick-btn">高分优先</button>
@@ -432,15 +549,9 @@ const Dashboard = () => {
                         >
                           <div className="recommendation-media">
                             {game.coverImage ? (
-                              <img
-                                src={game.coverImage}
-                                alt={game.title}
-                                className="recommendation-image"
-                              />
+                              <img src={game.coverImage} alt={game.title} className="recommendation-image" />
                             ) : (
-                              <div className="recommendation-image recommendation-image-fallback">
-                                G-Guide
-                              </div>
+                              <div className="recommendation-image recommendation-image-fallback">G-Guide</div>
                             )}
                             <div className="recommendation-overlay"></div>
                           </div>
@@ -514,48 +625,40 @@ const Dashboard = () => {
                 renderGameGrid(filteredGames)
               )}
             </>
-          ) : (
-            <section className="favorites-section">
-              <div className="favorites-head">
-                <div>
-                  <span className="recommendation-kicker">MY LIBRARY</span>
-                  <h2 className="recommendation-title">我的收藏</h2>
-                </div>
-                <p className="recommendation-subtitle">
-                  把想继续了解的游戏先收进这里，之后从详情页或首页都可以继续管理。
-                </p>
-              </div>
+          ) : null}
 
-              {!isLoggedIn ? (
-                <div className="favorites-empty">
-                  <h3>登录后才能同步收藏</h3>
-                  <p>你现在已经可以浏览游戏，登录后再把喜欢的内容保存到个人收藏夹里。</p>
-                  <button className="guest-banner-btn" onClick={handleOpenAuthPage}>
-                    去登录 / 注册
-                  </button>
-                </div>
-              ) : favoritesLoading ? (
-                <div className="state-panel">
-                  <div className="loader" style={{ margin: '0 auto', borderTopColor: '#1890ff' }}></div>
-                  <p style={{ marginTop: '16px', color: '#666' }}>正在加载收藏...</p>
-                </div>
-              ) : filteredFavoriteGames.length === 0 ? (
-                <div className="favorites-empty">
-                  <h3>{favoriteGames.length === 0 ? '你还没有收藏游戏' : '没有找到匹配的收藏'}</h3>
-                  <p>
-                    {favoriteGames.length === 0
+          {activeView === 'recent'
+            ? renderLibrarySection(
+                '最近查看',
+                '你最近点进详情页的游戏都会记录在这里，方便随时接着看。',
+                filteredRecentGames,
+                {
+                  loading: recentLoading,
+                  emptyTitle: '你最近还没有查看过游戏',
+                  emptyDescription: '点开任意游戏详情页，这里就会开始记录你的浏览轨迹。',
+                }
+              )
+            : null}
+
+          {activeView === 'favorites'
+            ? renderLibrarySection(
+                '我的收藏',
+                '把想继续了解的游戏先收进这里，之后从详情页或首页都可以继续管理。',
+                filteredFavoriteGames,
+                {
+                  loading: favoritesLoading,
+                  emptyTitle:
+                    favoriteGames.length === 0 ? '你还没有收藏游戏' : '没有找到匹配的收藏',
+                  emptyDescription:
+                    favoriteGames.length === 0
                       ? '回到首页点一下“收藏”，这里就会慢慢变成你的游戏清单。'
-                      : '试试换个搜索词，或者回到首页继续挑选想保存的游戏。'}
-                  </p>
-                  <button className="guest-banner-btn" onClick={() => setActiveView('home')}>
-                    返回首页继续逛
-                  </button>
-                </div>
-              ) : (
-                renderGameGrid(filteredFavoriteGames)
-              )}
-            </section>
-          )}
+                      : '试试换个搜索词，或者回到首页继续挑选想保存的游戏。',
+                  guestTitle: '登录后才能同步收藏',
+                  guestDescription: '你现在已经可以浏览游戏，登录后再把喜欢的内容保存到个人收藏夹里。',
+                  showGuestLogin: true,
+                }
+              )
+            : null}
         </section>
       </main>
     </div>

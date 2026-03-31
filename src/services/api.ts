@@ -157,4 +157,22 @@ export const removeFavoriteApi = async (gameId: string) => {
   }
 };
 
+export const getRecentlyViewedApi = async () => {
+  try {
+    const response = await api.get<ResultVO<Game[]>>('/api/recently-viewed');
+    return response.data;
+  } catch (error: any) {
+    throw new Error(getErrorMessage(error, 'Failed to load recently viewed games'));
+  }
+};
+
+export const recordRecentViewApi = async (gameId: string) => {
+  try {
+    const response = await api.post<ResultVO<boolean>>(`/api/recently-viewed/${gameId}`);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(getErrorMessage(error, 'Failed to record recent view'));
+  }
+};
+
 export default api;
