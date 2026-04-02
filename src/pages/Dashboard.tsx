@@ -17,6 +17,7 @@ import 'swiper/css';
 import 'swiper/css/pagination';
 
 type DashboardView = 'home' | 'recent' | 'favorites';
+type RecommendationMode = 'favorite' | 'recent' | 'top';
 
 const formatReleaseDate = (releaseDate?: string) => {
   if (!releaseDate) {
@@ -44,7 +45,6 @@ const Dashboard = () => {
   const [recentLoading, setRecentLoading] = useState(false);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('全部');
   const [activeView, setActiveView] = useState<DashboardView>('home');
   const [pendingFavoriteIds, setPendingFavoriteIds] = useState<string[]>([]);
   const isLoggedIn = Boolean(localStorage.getItem('token'));
@@ -55,10 +55,12 @@ const Dashboard = () => {
         setLoading(true);
         setError('');
         const res = await getGamesApi();
+
         if (res.code === 200) {
           setGames(res.data || []);
           return;
         }
+
         setError(res.message || '加载游戏列表失败');
       } catch (err: any) {
         setError(err.message || '加载游戏列表失败');
@@ -80,6 +82,7 @@ const Dashboard = () => {
       try {
         setFavoritesLoading(true);
         const res = await getFavoritesApi();
+
         if (res.code === 200) {
           setFavoriteGames(res.data || []);
         }
@@ -99,6 +102,7 @@ const Dashboard = () => {
         try {
           setRecentLoading(true);
           const res = await getRecentlyViewedApi();
+
           if (res.code === 200) {
             setRecentGames(res.data || []);
           }
@@ -129,74 +133,96 @@ const Dashboard = () => {
     void fetchRecentlyViewed();
   }, [games, isLoggedIn]);
 
-  const favoriteIds = useMemo(
-    () => favoriteGames.map((game) => game.id),
-    [favoriteGames]
-  );
+  const favoriteIds = useMemo(() => favoriteGames.map((game) => game.id), [favoriteGames]);
 
-  const todayRecommendations = useMemo(
-    () =>
-      [...games]
-        .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
-        .slice(0, 5),
+  const sortedByRating = useMemo(
+    () => [...games].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)),
     [games]
   );
 
-  const categories = useMemo(() => {
-    const dynamicCategories = Array.from(
-      new Set(games.map((game) => game.category).filter(Boolean))
+  const todayRecommendations = useMemo(() => sortedByRating.slice(0, 5), [sortedByRating]);
+
+  const searchKeyword = searchTerm.trim().toLowerCase();
+
+  const matchesKeyword = (game: Game) => {
+    if (!searchKeyword) {
+      return true;
+    }
+
+    return [game.title, game.description, game.category]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+      .includes(searchKeyword);
+  };
+
+  const homeRecommendationMeta = useMemo(() => {
+    if (isLoggedIn && favoriteGames.length > 0) {
+      return {
+        mode: 'favorite' as RecommendationMode,
+        subtitle: '优先参考你的收藏偏好，从同类型里筛出更值得继续看的游戏。',
+        seeds: favoriteGames,
+      };
+    }
+
+    if (recentGames.length > 0) {
+      return {
+        mode: 'recent' as RecommendationMode,
+        subtitle: '根据你最近浏览过的内容延展推荐，方便继续顺着兴趣往下逛。',
+        seeds: recentGames,
+      };
+    }
+
+    return {
+      mode: 'top' as RecommendationMode,
+      subtitle: '你还没有留下偏好，这里先按当前评分更高的游戏给你推荐。',
+      seeds: [] as Game[],
+    };
+  }, [favoriteGames, isLoggedIn, recentGames]);
+
+  const homeRecommendedGames = useMemo(() => {
+    if (homeRecommendationMeta.mode === 'top') {
+      return sortedByRating.slice(0, 6);
+    }
+
+    const seedIds = new Set(homeRecommendationMeta.seeds.map((game) => game.id));
+    const preferredCategories = Array.from(
+      new Set(homeRecommendationMeta.seeds.map((game) => game.category).filter(Boolean))
     );
-    return ['全部', ...dynamicCategories];
-  }, [games]);
 
-  const filteredGames = useMemo(() => {
-    return games.filter((game) => {
-      const matchesCategory =
-        selectedCategory === '全部' || game.category === selectedCategory;
+    const prioritizedGames = sortedByRating.filter(
+      (game) => !seedIds.has(game.id) && preferredCategories.includes(game.category)
+    );
+    const fallbackGames = sortedByRating.filter((game) => !seedIds.has(game.id));
+    const nextGames: Game[] = [];
+    const addedIds = new Set<string>();
 
-      const keyword = searchTerm.trim().toLowerCase();
-      if (!keyword) {
-        return matchesCategory;
+    [...prioritizedGames, ...fallbackGames].forEach((game) => {
+      if (addedIds.has(game.id)) {
+        return;
       }
 
-      const searchableText = [game.title, game.description, game.category]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-
-      return matchesCategory && searchableText.includes(keyword);
+      addedIds.add(game.id);
+      nextGames.push(game);
     });
-  }, [games, searchTerm, selectedCategory]);
 
-  const filteredFavoriteGames = useMemo(() => {
-    const keyword = searchTerm.trim().toLowerCase();
-    if (!keyword) {
-      return favoriteGames;
-    }
+    return nextGames.slice(0, 6);
+  }, [homeRecommendationMeta, sortedByRating]);
 
-    return favoriteGames.filter((game) =>
-      [game.title, game.description, game.category]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
-        .includes(keyword)
-    );
-  }, [favoriteGames, searchTerm]);
+  const filteredHomeRecommendedGames = useMemo(
+    () => homeRecommendedGames.filter(matchesKeyword),
+    [homeRecommendedGames, searchKeyword]
+  );
 
-  const filteredRecentGames = useMemo(() => {
-    const keyword = searchTerm.trim().toLowerCase();
-    if (!keyword) {
-      return recentGames;
-    }
+  const filteredFavoriteGames = useMemo(
+    () => favoriteGames.filter(matchesKeyword),
+    [favoriteGames, searchKeyword]
+  );
 
-    return recentGames.filter((game) =>
-      [game.title, game.description, game.category]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
-        .includes(keyword)
-    );
-  }, [recentGames, searchTerm]);
+  const filteredRecentGames = useMemo(
+    () => recentGames.filter(matchesKeyword),
+    [recentGames, searchKeyword]
+  );
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -243,6 +269,7 @@ const Dashboard = () => {
           if (current.some((item) => item.id === game.id)) {
             return current;
           }
+
           return [game, ...current];
         });
       }
@@ -294,9 +321,7 @@ const Dashboard = () => {
               </span>
             </div>
             <div className="game-name">{game.title}</div>
-            <div className="game-desc">
-              {game.description || '这款游戏暂时还没有补充简介。'}
-            </div>
+            <div className="game-desc">{game.description || '这款游戏暂时还没有补充简介。'}</div>
           </div>
         </article>
       ))}
@@ -447,7 +472,7 @@ const Dashboard = () => {
                   ? '搜索收藏的游戏'
                   : activeView === 'recent'
                     ? '搜索最近查看的游戏'
-                    : '搜索游戏、分类或亮点'
+                    : '搜索推荐的游戏'
               }
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
@@ -508,9 +533,8 @@ const Dashboard = () => {
                   {isLoggedIn ? '同步最近查看' : '登录后同步记录'}
                 </button>
                 <button className="quick-btn">今日推荐</button>
+                <button className="quick-btn">为你推荐</button>
                 <button className="quick-btn">高分优先</button>
-                <button className="quick-btn">热门分类</button>
-                <button className="quick-btn">游戏标签库</button>
               </div>
 
               {!loading && todayRecommendations.length > 0 ? (
@@ -559,7 +583,7 @@ const Dashboard = () => {
                           <div className="recommendation-content">
                             <div className="recommendation-badges">
                               <span className="recommendation-badge recommendation-badge-accent">
-                                {game.rating ? `${game.rating.toFixed(1)} 分` : '精选推荐'}
+                                {typeof game.rating === 'number' ? `${game.rating.toFixed(1)} 分` : '精选推荐'}
                               </span>
                               <span className="recommendation-badge">{game.category || '未分类'}</span>
                               <span className="recommendation-badge">
@@ -592,38 +616,36 @@ const Dashboard = () => {
                 </section>
               ) : null}
 
-              <div className="tabs-container">
-                {categories.map((category) => (
-                  <div
-                    key={category}
-                    className={`tab${selectedCategory === category ? ' active' : ''}`}
-                    onClick={() => setSelectedCategory(category)}
-                  >
-                    {category}
+              <section className="favorites-section">
+                <div className="favorites-head">
+                  <div>
+                    <span className="recommendation-kicker">FOR YOU</span>
+                    <h2 className="recommendation-title">为你推荐</h2>
                   </div>
-                ))}
-              </div>
+                  <p className="recommendation-subtitle">{homeRecommendationMeta.subtitle}</p>
+                </div>
 
-              {loading ? (
-                <div className="state-panel">
-                  <div className="loader" style={{ margin: '0 auto', borderTopColor: '#1890ff' }}></div>
-                  <p style={{ marginTop: '16px', color: '#666' }}>正在加载游戏列表...</p>
-                </div>
-              ) : error ? (
-                <div className="state-panel state-panel-error">
-                  <p>{error}</p>
-                  <button className="guest-banner-btn" onClick={() => window.location.reload()}>
-                    重试
-                  </button>
-                </div>
-              ) : filteredGames.length === 0 ? (
-                <div className="state-panel">
-                  <h3>没有找到匹配的游戏</h3>
-                  <p>可以换个关键词，或者切回其他分类继续浏览。</p>
-                </div>
-              ) : (
-                renderGameGrid(filteredGames)
-              )}
+                {loading ? (
+                  <div className="state-panel">
+                    <div className="loader" style={{ margin: '0 auto', borderTopColor: '#1890ff' }}></div>
+                    <p style={{ marginTop: '16px', color: '#666' }}>正在整理推荐结果...</p>
+                  </div>
+                ) : error ? (
+                  <div className="state-panel state-panel-error">
+                    <p>{error}</p>
+                    <button className="guest-banner-btn" onClick={() => window.location.reload()}>
+                      重试
+                    </button>
+                  </div>
+                ) : filteredHomeRecommendedGames.length === 0 ? (
+                  <div className="state-panel">
+                    <h3>没有找到匹配的推荐结果</h3>
+                    <p>可以换个关键词，或者先打开几款游戏详情，让推荐更快学到你的偏好。</p>
+                  </div>
+                ) : (
+                  renderGameGrid(filteredHomeRecommendedGames)
+                )}
+              </section>
             </>
           ) : null}
 
