@@ -42,7 +42,7 @@ export interface Game {
   description: string;
   coverImage: string;
   rating: number;
-  category: string;
+  categories: string[];
   releaseDate: string;
   cinematicTrailer?: string;
   downloadLink?: string;

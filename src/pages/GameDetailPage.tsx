@@ -32,6 +32,9 @@ const formatRating = (rating?: number) => {
   return `${rating.toFixed(1)} / 10`;
 };
 
+const getCategoryText = (game?: Game | null) =>
+  game?.categories && game.categories.length > 0 ? game.categories.join(' / ') : '未分类';
+
 const GameDetailPage = () => {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -207,7 +210,7 @@ const GameDetailPage = () => {
           </div>
 
           <div className="detail-copy">
-            <span className="detail-kicker">{game.category || '未分类'}</span>
+            <span className="detail-kicker">{getCategoryText(game)}</span>
             <h1 className="detail-title">{game.title}</h1>
             <p className="detail-summary">
               {game.description || '这款游戏暂时还没有补充详细介绍。'}
@@ -222,7 +225,7 @@ const GameDetailPage = () => {
             <div className="detail-meta-grid">
               <article className="detail-meta-card">
                 <span>分类</span>
-                <strong>{game.category || '未分类'}</strong>
+                <strong>{getCategoryText(game)}</strong>
               </article>
               <article className="detail-meta-card">
                 <span>发布日期</span>
@@ -282,7 +285,7 @@ const GameDetailPage = () => {
           <aside className="detail-panel detail-panel-side">
             <h2>快速信息</h2>
             <ul className="detail-facts">
-              <li>分类：{game.category || '未分类'}</li>
+              <li>分类：{getCategoryText(game)}</li>
               <li>评分：{formatRating(game.rating)}</li>
               <li>发布日期：{formatReleaseDate(game.releaseDate)}</li>
               <li>预告片：{game.cinematicTrailer ? '已提供链接' : '暂未提供'}</li>

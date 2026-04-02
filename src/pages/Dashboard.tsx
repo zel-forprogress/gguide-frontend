@@ -35,6 +35,8 @@ const formatReleaseDate = (releaseDate?: string) => {
   }).format(date);
 };
 
+const getPrimaryCategory = (game: Game) => game.categories?.[0] || '未分类';
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const [games, setGames] = useState<Game[]>([]);
@@ -149,7 +151,7 @@ const Dashboard = () => {
       return true;
     }
 
-    return [game.title, game.description, game.category]
+    return [game.title, game.description, ...(game.categories || [])]
       .filter(Boolean)
       .join(' ')
       .toLowerCase()
@@ -187,11 +189,13 @@ const Dashboard = () => {
 
     const seedIds = new Set(homeRecommendationMeta.seeds.map((game) => game.id));
     const preferredCategories = Array.from(
-      new Set(homeRecommendationMeta.seeds.map((game) => game.category).filter(Boolean))
+      new Set(homeRecommendationMeta.seeds.flatMap((game) => game.categories || []).filter(Boolean))
     );
 
     const prioritizedGames = sortedByRating.filter(
-      (game) => !seedIds.has(game.id) && preferredCategories.includes(game.category)
+      (game) =>
+        !seedIds.has(game.id) &&
+        (game.categories || []).some((category) => preferredCategories.includes(category))
     );
     const fallbackGames = sortedByRating.filter((game) => !seedIds.has(game.id));
     const nextGames: Game[] = [];
@@ -315,7 +319,7 @@ const Dashboard = () => {
 
           <div className="game-info">
             <div className="game-card-meta">
-              <span className="game-category-tag">{game.category || '未分类'}</span>
+              <span className="game-category-tag">{getPrimaryCategory(game)}</span>
               <span className="game-rating-tag">
                 {typeof game.rating === 'number' ? game.rating.toFixed(1) : 'N/A'}
               </span>
@@ -585,7 +589,7 @@ const Dashboard = () => {
                               <span className="recommendation-badge recommendation-badge-accent">
                                 {typeof game.rating === 'number' ? `${game.rating.toFixed(1)} 分` : '精选推荐'}
                               </span>
-                              <span className="recommendation-badge">{game.category || '未分类'}</span>
+                              <span className="recommendation-badge">{getPrimaryCategory(game)}</span>
                               <span className="recommendation-badge">
                                 {formatReleaseDate(game.releaseDate)}
                               </span>
