@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { AppLocale } from '../i18n/locale';
 import { getStoredLocale } from '../i18n/locale';
 
 const api = axios.create({
@@ -47,6 +48,8 @@ export interface Game {
   rating: number;
   categories: string[];
   categoryLabels: string[];
+  regionCode?: string;
+  regionLabel?: string;
   releaseDate: string;
   cinematicTrailer?: string;
   downloadLink?: string;
@@ -107,10 +110,10 @@ export const getHotGamesApi = async () => {
   };
 };
 
-export const getGamesApi = async () => {
+export const getGamesApi = async (locale?: AppLocale) => {
   try {
     const response = await api.get<ResultVO<Game[]>>('/api/games', {
-      params: { lang: getStoredLocale() },
+      params: { lang: locale ?? getStoredLocale() },
     });
     return response.data;
   } catch (error: any) {
@@ -118,10 +121,10 @@ export const getGamesApi = async () => {
   }
 };
 
-export const getGameDetailApi = async (id: string) => {
+export const getGameDetailApi = async (id: string, locale?: AppLocale) => {
   try {
     const response = await api.get<ResultVO<Game>>(`/api/games/${id}`, {
-      params: { lang: getStoredLocale() },
+      params: { lang: locale ?? getStoredLocale() },
     });
     return response.data;
   } catch (error: any) {
@@ -129,10 +132,10 @@ export const getGameDetailApi = async (id: string) => {
   }
 };
 
-export const getFavoritesApi = async () => {
+export const getFavoritesApi = async (locale?: AppLocale) => {
   try {
     const response = await api.get<ResultVO<Game[]>>('/api/favorites', {
-      params: { lang: getStoredLocale() },
+      params: { lang: locale ?? getStoredLocale() },
     });
     return response.data;
   } catch (error: any) {
@@ -167,10 +170,10 @@ export const removeFavoriteApi = async (gameId: string) => {
   }
 };
 
-export const getRecentlyViewedApi = async () => {
+export const getRecentlyViewedApi = async (locale?: AppLocale) => {
   try {
     const response = await api.get<ResultVO<Game[]>>('/api/recently-viewed', {
-      params: { lang: getStoredLocale() },
+      params: { lang: locale ?? getStoredLocale() },
     });
     return response.data;
   } catch (error: any) {

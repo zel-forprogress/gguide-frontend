@@ -62,7 +62,7 @@ const Dashboard = () => {
       try {
         setLoading(true);
         setError('');
-        const response = await getGamesApi();
+        const response = await getGamesApi(locale);
 
         if (response.code === 200) {
           setGames(response.data || []);
@@ -89,7 +89,7 @@ const Dashboard = () => {
 
       try {
         setFavoritesLoading(true);
-        const response = await getFavoritesApi();
+        const response = await getFavoritesApi(locale);
         if (response.code === 200) {
           setFavoriteGames(response.data || []);
         }
@@ -108,7 +108,7 @@ const Dashboard = () => {
       if (isLoggedIn) {
         try {
           setRecentLoading(true);
-          const response = await getRecentlyViewedApi();
+          const response = await getRecentlyViewedApi(locale);
           if (response.code === 200) {
             setRecentGames(response.data || []);
           }
@@ -158,6 +158,8 @@ const Dashboard = () => {
     return [
       game.title,
       game.description,
+      game.regionLabel,
+      game.regionCode,
       ...(game.categoryLabels || []),
       ...(game.categories || []),
       ...Object.values(game.titleI18n || {}),

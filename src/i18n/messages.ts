@@ -97,6 +97,7 @@ export type MessageKey =
   | 'gameUnavailable'
   | 'retry'
   | 'category'
+  | 'region'
   | 'releaseDate'
   | 'overallRating'
   | 'downloadNow'
@@ -210,6 +211,7 @@ export const messages: Record<AppLocale, Messages> = {
     gameUnavailable: '当前游戏详情不可用。',
     retry: '重试',
     category: '分类',
+    region: '地区',
     releaseDate: '发布日期',
     overallRating: '综合评分',
     downloadNow: '前往下载',
@@ -321,6 +323,7 @@ export const messages: Record<AppLocale, Messages> = {
     gameUnavailable: 'This game detail is unavailable right now.',
     retry: 'Retry',
     category: 'Category',
+    region: 'Region',
     releaseDate: 'Release Date',
     overallRating: 'Overall Rating',
     downloadNow: 'Open Store',

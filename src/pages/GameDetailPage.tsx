@@ -49,6 +49,8 @@ const GameDetailPage = () => {
       ? item.categoryLabels.join(' / ')
       : t('uncategorized');
 
+  const getRegionText = (item?: Game | null) => item?.regionLabel || 'Unknown';
+
   useEffect(() => {
     let cancelled = false;
 
@@ -64,7 +66,7 @@ const GameDetailPage = () => {
         setError('');
 
         const [gameResponse, favoriteResponse] = await Promise.all([
-          getGameDetailApi(id),
+          getGameDetailApi(id, locale),
           isLoggedIn ? getFavoriteStatusApi(id) : Promise.resolve(null),
         ]);
 
@@ -226,13 +228,16 @@ const GameDetailPage = () => {
             <div className="detail-badges">
               <span className="detail-badge detail-badge-accent">{formatRating(game.rating)}</span>
               <span className="detail-badge">{formatReleaseDate(game.releaseDate)}</span>
-              <span className="detail-badge">ID: {game.id}</span>
             </div>
 
             <div className="detail-meta-grid">
               <article className="detail-meta-card">
                 <span>{t('category')}</span>
                 <strong>{getCategoryText(game)}</strong>
+              </article>
+              <article className="detail-meta-card">
+                <span>{t('region')}</span>
+                <strong>{getRegionText(game)}</strong>
               </article>
               <article className="detail-meta-card">
                 <span>{t('releaseDate')}</span>
@@ -290,6 +295,9 @@ const GameDetailPage = () => {
             <ul className="detail-facts">
               <li>
                 {t('category')}: {getCategoryText(game)}
+              </li>
+              <li>
+                {t('region')}: {getRegionText(game)}
               </li>
               <li>
                 {t('overallRating')}: {formatRating(game.rating)}
