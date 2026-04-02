@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import FavoriteButton from '../components/FavoriteButton';
+import LanguageSwitcher from '../components/LanguageSwitcher';
+import { useLocale } from '../i18n/LocaleProvider';
 import {
   addFavoriteApi,
   getFavoriteStatusApi,
@@ -11,33 +13,10 @@ import {
 } from '../services/api';
 import { saveRecentViewLocally } from '../utils/recentViews';
 
-const formatReleaseDate = (releaseDate?: string) => {
-  if (!releaseDate) {
-    return '待公布';
-  }
-
-  const date = new Date(releaseDate);
-  if (Number.isNaN(date.getTime())) {
-    return '待公布';
-  }
-
-  return new Intl.DateTimeFormat('zh-CN', { dateStyle: 'long' }).format(date);
-};
-
-const formatRating = (rating?: number) => {
-  if (typeof rating !== 'number' || Number.isNaN(rating)) {
-    return '暂无评分';
-  }
-
-  return `${rating.toFixed(1)} / 10`;
-};
-
-const getCategoryText = (game?: Game | null) =>
-  game?.categories && game.categories.length > 0 ? game.categories.join(' / ') : '未分类';
-
 const GameDetailPage = () => {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { locale, t } = useLocale();
   const isLoggedIn = Boolean(localStorage.getItem('token'));
   const [game, setGame] = useState<Game | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,12 +24,37 @@ const GameDetailPage = () => {
   const [isFavorite, setIsFavorite] = useState(false);
   const [error, setError] = useState('');
 
+  const formatReleaseDate = (releaseDate?: string) => {
+    if (!releaseDate) {
+      return t('comingSoon');
+    }
+
+    const date = new Date(releaseDate);
+    if (Number.isNaN(date.getTime())) {
+      return t('comingSoon');
+    }
+
+    return new Intl.DateTimeFormat(locale, { dateStyle: 'long' }).format(date);
+  };
+
+  const formatRating = (rating?: number) => {
+    if (typeof rating !== 'number' || Number.isNaN(rating)) {
+      return t('noRating');
+    }
+    return `${rating.toFixed(1)} / 10`;
+  };
+
+  const getCategoryText = (item?: Game | null) =>
+    item?.categoryLabels && item.categoryLabels.length > 0
+      ? item.categoryLabels.join(' / ')
+      : t('uncategorized');
+
   useEffect(() => {
     let cancelled = false;
 
     const fetchGameDetail = async () => {
       if (!id) {
-        setError('无效的游戏 ID');
+        setError(t('invalidGameId'));
         setLoading(false);
         return;
       }
@@ -71,7 +75,7 @@ const GameDetailPage = () => {
         if (gameResponse.code === 200 && gameResponse.data) {
           setGame(gameResponse.data);
         } else {
-          setError(gameResponse.message || '获取游戏详情失败');
+          setError(gameResponse.message || t('gameUnavailable'));
         }
 
         if (favoriteResponse?.code === 200) {
@@ -81,7 +85,7 @@ const GameDetailPage = () => {
         }
       } catch (err: any) {
         if (!cancelled) {
-          setError(err.message || '获取游戏详情失败');
+          setError(err.message || t('gameUnavailable'));
         }
       } finally {
         if (!cancelled) {
@@ -95,7 +99,7 @@ const GameDetailPage = () => {
     return () => {
       cancelled = true;
     };
-  }, [id, isLoggedIn]);
+  }, [id, isLoggedIn, locale, t]);
 
   useEffect(() => {
     if (!game?.id) {
@@ -136,7 +140,7 @@ const GameDetailPage = () => {
         setIsFavorite(true);
       }
     } catch (err: any) {
-      window.alert(err.message || '收藏操作失败');
+      window.alert(err.message || t('actionFailed'));
     } finally {
       setFavoriteLoading(false);
     }
@@ -147,11 +151,11 @@ const GameDetailPage = () => {
       <div className="game-detail-page">
         <div className="detail-shell">
           <button className="detail-back-btn" onClick={handleBackToDashboard}>
-            返回首页
+            {t('backHome')}
           </button>
           <div className="detail-feedback-card">
             <div className="detail-loader"></div>
-            <p>正在加载游戏详情...</p>
+            <p>{t('loadingGameDetail')}</p>
           </div>
         </div>
       </div>
@@ -163,17 +167,17 @@ const GameDetailPage = () => {
       <div className="game-detail-page">
         <div className="detail-shell">
           <button className="detail-back-btn" onClick={handleBackToDashboard}>
-            返回首页
+            {t('backHome')}
           </button>
           <div className="detail-feedback-card detail-feedback-error">
-            <h2>没有找到这款游戏</h2>
-            <p>{error || '当前游戏详情不可用。'}</p>
+            <h2>{t('gameNotFound')}</h2>
+            <p>{error || t('gameUnavailable')}</p>
             <div className="detail-actions">
               <button className="detail-primary-btn" onClick={handleBackToDashboard}>
-                返回游戏列表
+                {t('backToList')}
               </button>
               <button className="detail-secondary-btn" onClick={() => window.location.reload()}>
-                重新加载
+                {t('retry')}
               </button>
             </div>
           </div>
@@ -195,9 +199,14 @@ const GameDetailPage = () => {
       <div className="detail-shell">
         <div className="detail-toolbar">
           <button className="detail-back-btn" onClick={handleBackToDashboard}>
-            返回首页
+            {t('backHome')}
           </button>
-          <div className="detail-toolbar-caption">G-Guide / 游戏详情</div>
+          <div className="detail-toolbar-actions">
+            <div className="detail-toolbar-caption">
+              {t('appName')} / {t('gameDetail')}
+            </div>
+            <LanguageSwitcher />
+          </div>
         </div>
 
         <section className="detail-hero">
@@ -205,16 +214,14 @@ const GameDetailPage = () => {
             {game.coverImage ? (
               <img className="detail-cover-image" src={game.coverImage} alt={game.title} />
             ) : (
-              <div className="detail-cover-placeholder">G-Guide</div>
+              <div className="detail-cover-placeholder">{t('appName')}</div>
             )}
           </div>
 
           <div className="detail-copy">
             <span className="detail-kicker">{getCategoryText(game)}</span>
             <h1 className="detail-title">{game.title}</h1>
-            <p className="detail-summary">
-              {game.description || '这款游戏暂时还没有补充详细介绍。'}
-            </p>
+            <p className="detail-summary">{game.description || t('noDescription')}</p>
 
             <div className="detail-badges">
               <span className="detail-badge detail-badge-accent">{formatRating(game.rating)}</span>
@@ -224,15 +231,15 @@ const GameDetailPage = () => {
 
             <div className="detail-meta-grid">
               <article className="detail-meta-card">
-                <span>分类</span>
+                <span>{t('category')}</span>
                 <strong>{getCategoryText(game)}</strong>
               </article>
               <article className="detail-meta-card">
-                <span>发布日期</span>
+                <span>{t('releaseDate')}</span>
                 <strong>{formatReleaseDate(game.releaseDate)}</strong>
               </article>
               <article className="detail-meta-card">
-                <span>综合评分</span>
+                <span>{t('overallRating')}</span>
                 <strong>{formatRating(game.rating)}</strong>
               </article>
             </div>
@@ -250,7 +257,7 @@ const GameDetailPage = () => {
                   target="_blank"
                   rel="noreferrer"
                 >
-                  前往下载
+                  {t('downloadNow')}
                 </a>
               ) : null}
               {game.cinematicTrailer ? (
@@ -260,36 +267,42 @@ const GameDetailPage = () => {
                   target="_blank"
                   rel="noreferrer"
                 >
-                  观看预告
+                  {t('watchTrailer')}
                 </a>
               ) : null}
               <button className="detail-secondary-btn" onClick={handleBackToDashboard}>
-                返回列表
+                {t('backToList')}
               </button>
             </div>
 
-            {!isLoggedIn ? (
-              <p className="detail-login-tip">
-                游客模式下也会记录最近查看；登录后还可以同步收藏和浏览记录。
-              </p>
-            ) : null}
+            {!isLoggedIn ? <p className="detail-login-tip">{t('guestDetailTip')}</p> : null}
           </div>
         </section>
 
         <section className="detail-content-grid">
           <article className="detail-panel">
-            <h2>游戏简介</h2>
-            <p>{game.description || '这款游戏暂时还没有补充详细介绍。'}</p>
+            <h2>{t('gameIntroduction')}</h2>
+            <p>{game.description || t('noDescription')}</p>
           </article>
 
           <aside className="detail-panel detail-panel-side">
-            <h2>快速信息</h2>
+            <h2>{t('quickFacts')}</h2>
             <ul className="detail-facts">
-              <li>分类：{getCategoryText(game)}</li>
-              <li>评分：{formatRating(game.rating)}</li>
-              <li>发布日期：{formatReleaseDate(game.releaseDate)}</li>
-              <li>预告片：{game.cinematicTrailer ? '已提供链接' : '暂未提供'}</li>
-              <li>下载方式：{game.downloadLink ? '已提供链接' : '暂未提供'}</li>
+              <li>
+                {t('category')}: {getCategoryText(game)}
+              </li>
+              <li>
+                {t('overallRating')}: {formatRating(game.rating)}
+              </li>
+              <li>
+                {t('releaseDate')}: {formatReleaseDate(game.releaseDate)}
+              </li>
+              <li>
+                {t('watchTrailer')}: {game.cinematicTrailer ? t('trailerAvailable') : t('trailerUnavailable')}
+              </li>
+              <li>
+                {t('downloadNow')}: {game.downloadLink ? t('downloadAvailable') : t('downloadUnavailable')}
+              </li>
             </ul>
           </aside>
         </section>

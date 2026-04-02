@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getStoredLocale } from '../i18n/locale';
 
 const api = axios.create({
   baseURL: 'http://localhost:8080',
@@ -40,9 +41,12 @@ export interface Game {
   id: string;
   title: string;
   description: string;
+  titleI18n?: Record<string, string>;
+  descriptionI18n?: Record<string, string>;
   coverImage: string;
   rating: number;
   categories: string[];
+  categoryLabels: string[];
   releaseDate: string;
   cinematicTrailer?: string;
   downloadLink?: string;
@@ -105,7 +109,9 @@ export const getHotGamesApi = async () => {
 
 export const getGamesApi = async () => {
   try {
-    const response = await api.get<ResultVO<Game[]>>('/api/games');
+    const response = await api.get<ResultVO<Game[]>>('/api/games', {
+      params: { lang: getStoredLocale() },
+    });
     return response.data;
   } catch (error: any) {
     throw new Error(getErrorMessage(error, 'Failed to load games'));
@@ -114,7 +120,9 @@ export const getGamesApi = async () => {
 
 export const getGameDetailApi = async (id: string) => {
   try {
-    const response = await api.get<ResultVO<Game>>(`/api/games/${id}`);
+    const response = await api.get<ResultVO<Game>>(`/api/games/${id}`, {
+      params: { lang: getStoredLocale() },
+    });
     return response.data;
   } catch (error: any) {
     throw new Error(getErrorMessage(error, 'Failed to load game detail'));
@@ -123,7 +131,9 @@ export const getGameDetailApi = async (id: string) => {
 
 export const getFavoritesApi = async () => {
   try {
-    const response = await api.get<ResultVO<Game[]>>('/api/favorites');
+    const response = await api.get<ResultVO<Game[]>>('/api/favorites', {
+      params: { lang: getStoredLocale() },
+    });
     return response.data;
   } catch (error: any) {
     throw new Error(getErrorMessage(error, 'Failed to load favorites'));
@@ -159,7 +169,9 @@ export const removeFavoriteApi = async (gameId: string) => {
 
 export const getRecentlyViewedApi = async () => {
   try {
-    const response = await api.get<ResultVO<Game[]>>('/api/recently-viewed');
+    const response = await api.get<ResultVO<Game[]>>('/api/recently-viewed', {
+      params: { lang: getStoredLocale() },
+    });
     return response.data;
   } catch (error: any) {
     throw new Error(getErrorMessage(error, 'Failed to load recently viewed games'));

@@ -1,4 +1,5 @@
 import type { MouseEvent } from 'react';
+import { useLocale } from '../i18n/LocaleProvider';
 
 interface FavoriteButtonProps {
   active: boolean;
@@ -13,6 +14,8 @@ const FavoriteButton = ({
   compact = false,
   onClick,
 }: FavoriteButtonProps) => {
+  const { t } = useLocale();
+
   return (
     <button
       type="button"
@@ -23,7 +26,7 @@ const FavoriteButton = ({
       disabled={loading}
       aria-pressed={active}
     >
-      {loading ? '处理中...' : active ? '已收藏' : '收藏'}
+      {loading ? t('processing') : active ? t('favorited') : t('favorite')}
     </button>
   );
 };
