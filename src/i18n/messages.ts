@@ -88,6 +88,10 @@ export type MessageKey =
   | 'missingUsernameOrPassword'
   | 'missingToken'
   | 'actionFailed'
+  | 'loginFailed'
+  | 'registerFailed'
+  | 'invalidCredentials'
+  | 'usernameAlreadyExists'
   | 'noAccount'
   | 'hasAccount'
   | 'gameDetail'
@@ -202,6 +206,10 @@ export const messages: Record<AppLocale, Messages> = {
     missingUsernameOrPassword: '请输入用户名和密码',
     missingToken: '服务器未返回 Token',
     actionFailed: '操作失败，请重试',
+    loginFailed: '登录失败，请重试',
+    registerFailed: '注册失败，请重试',
+    invalidCredentials: '用户名或密码错误',
+    usernameAlreadyExists: '用户名已存在',
     noAccount: '没有账号？点击注册',
     hasAccount: '已有账号？点击登录',
     gameDetail: '游戏详情',
@@ -314,6 +322,10 @@ export const messages: Record<AppLocale, Messages> = {
     missingUsernameOrPassword: 'Please enter both username and password',
     missingToken: 'The server did not return a token',
     actionFailed: 'Action failed. Please try again.',
+    loginFailed: 'Login failed. Please try again.',
+    registerFailed: 'Registration failed. Please try again.',
+    invalidCredentials: 'Incorrect username or password.',
+    usernameAlreadyExists: 'This username already exists.',
     noAccount: "Don't have an account? Register",
     hasAccount: 'Already have an account? Log in',
     gameDetail: 'Game Detail',

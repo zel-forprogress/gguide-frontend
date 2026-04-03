@@ -8,19 +8,19 @@
 
 /* Landing Page Styles */
 .landing-page {
-  height: 100vh;
+  min-height: 100vh;
   width: 100vw;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   background: linear-gradient(135deg, #fff 0%, #f0f2f5 100%);
   text-align: center;
-  padding: 20px;
+  padding: 24px 20px 40px;
 }
 
 .landing-content {
-  max-width: 600px;
+  width: min(100%, 980px);
   animation: fadeIn 0.8s ease-out;
 }
 
@@ -29,7 +29,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 22px;
+  width: 100%;
+  margin-bottom: 40px;
 }
 
 .landing-back-btn {
@@ -43,6 +44,7 @@
   color: #444;
   font-size: 14px;
   font-weight: 600;
+  white-space: nowrap;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
@@ -56,6 +58,11 @@
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+.landing-main {
+  max-width: 620px;
+  margin: 0 auto;
 }
 
 .landing-logo {
@@ -91,6 +98,38 @@
   width: 100%;
   max-width: 400px;
   margin: 0 auto;
+}
+
+@media (max-width: 640px) {
+  .landing-page {
+    padding: 16px 16px 32px;
+  }
+
+  .landing-toolbar {
+    margin-bottom: 28px;
+  }
+
+  .landing-main {
+    max-width: 100%;
+  }
+
+  .landing-logo {
+    font-size: 38px;
+    gap: 12px;
+  }
+
+  .landing-title {
+    font-size: 30px;
+  }
+
+  .landing-desc {
+    font-size: 16px;
+    margin-bottom: 28px;
+  }
+
+  .login-card {
+    padding: 28px 20px;
+  }
 }
 
 .login-card input {
