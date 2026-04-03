@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type MouseEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Autoplay, Pagination } from 'swiper/modules';
 import FavoriteButton from '../components/FavoriteButton';
@@ -24,6 +24,7 @@ const ALL_CATEGORY = 'ALL';
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { locale, t } = useLocale();
   const [games, setGames] = useState<Game[]>([]);
   const [favoriteGames, setFavoriteGames] = useState<Game[]>([]);
@@ -56,6 +57,14 @@ const Dashboard = () => {
 
   const getPrimaryCategory = (game: Game) =>
     game.categoryLabels?.[0] || game.categories?.[0] || t('uncategorized');
+
+  useEffect(() => {
+    const requestedView = location.state?.view as DashboardView | undefined;
+    if (requestedView && ['home', 'recent', 'favorites', 'hub'].includes(requestedView)) {
+      setActiveView(requestedView);
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.pathname, location.state, navigate]);
 
   useEffect(() => {
     const fetchGames = async () => {
@@ -732,7 +741,9 @@ const Dashboard = () => {
                 <div className="avatar-wrapper">
                   <div className="avatar"></div>
                   <div className="user-dropdown">
-                    <div className="dropdown-item">{t('profileSettings')}</div>
+                    <div className="dropdown-item" onClick={() => navigate('/profile')}>
+                      {t('profileSettings')}
+                    </div>
                     <div className="dropdown-item" onClick={handleLogout}>
                       {t('logout')}
                     </div>

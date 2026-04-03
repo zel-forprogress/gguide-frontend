@@ -2,6 +2,8 @@ import type { RouteObject } from 'react-router-dom';
 import LandingPage from '../pages/LandingPage';
 import Dashboard from '../pages/Dashboard';
 import GameDetailPage from '../pages/GameDetailPage';
+import ProfileSettingsPage from '../pages/ProfileSettingsPage';
+import ProtectedRoute from './ProtectedRoute';
 import PublicRoute from './PublicRoute';
 
 /**
@@ -29,6 +31,14 @@ const routes: RouteObject[] = [
   {
     path: '/games/:id',
     element: <GameDetailPage />,
+  },
+  {
+    path: '/profile',
+    element: (
+      <ProtectedRoute>
+        <ProfileSettingsPage />
+      </ProtectedRoute>
+    ),
   },
   {
     path: '*',

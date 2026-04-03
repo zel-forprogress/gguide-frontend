@@ -113,7 +113,26 @@ export type MessageKey =
   | 'trailerAvailable'
   | 'trailerUnavailable'
   | 'downloadAvailable'
-  | 'downloadUnavailable';
+  | 'downloadUnavailable'
+  | 'profilePageTitle'
+  | 'profilePageSubtitle'
+  | 'sessionStatusLabel'
+  | 'sessionStatusActive'
+  | 'profileOverviewTitle'
+  | 'profileOverviewDesc'
+  | 'usernameLabel'
+  | 'languageCurrent'
+  | 'tokenStatusLabel'
+  | 'tokenStatusHealthy'
+  | 'languagePreferenceTitle'
+  | 'languagePreferenceDesc'
+  | 'profileActivityTitle'
+  | 'profileActivityDesc'
+  | 'profileFavoriteCount'
+  | 'profileRecentCount'
+  | 'profileTopCategory'
+  | 'profileQuickActionsTitle'
+  | 'profileQuickActionsDesc';
 
 type Messages = Record<MessageKey, string>;
 
@@ -232,6 +251,25 @@ export const messages: Record<AppLocale, Messages> = {
     trailerUnavailable: '暂未提供',
     downloadAvailable: '已提供链接',
     downloadUnavailable: '暂未提供',
+    profilePageTitle: '个人设置',
+    profilePageSubtitle: '在这里查看账号状态、语言偏好，以及你的收藏和最近查看概况。',
+    sessionStatusLabel: '当前会话',
+    sessionStatusActive: '已登录',
+    profileOverviewTitle: '账号概览',
+    profileOverviewDesc: '当前账号的基础信息会显示在这里。',
+    usernameLabel: '用户名',
+    languageCurrent: '当前语言',
+    tokenStatusLabel: '登录状态',
+    tokenStatusHealthy: '会话有效',
+    languagePreferenceTitle: '语言偏好',
+    languagePreferenceDesc: '切换界面语言后，游戏内容和页面文案会一起同步。',
+    profileActivityTitle: '个人数据',
+    profileActivityDesc: '快速查看你当前账号下最常用的内容统计。',
+    profileFavoriteCount: '收藏游戏',
+    profileRecentCount: '最近查看',
+    profileTopCategory: '偏好分类',
+    profileQuickActionsTitle: '快捷操作',
+    profileQuickActionsDesc: '从这里可以快速回到你最常用的页面。',
   },
   'en-US': {
     appName: 'G-Guide',
@@ -348,5 +386,26 @@ export const messages: Record<AppLocale, Messages> = {
     trailerUnavailable: 'Not available',
     downloadAvailable: 'Link available',
     downloadUnavailable: 'Not available',
+    profilePageTitle: 'Profile Settings',
+    profilePageSubtitle:
+      'Review your account status, language preference, and a quick summary of favorites and recent activity.',
+    sessionStatusLabel: 'Session',
+    sessionStatusActive: 'Signed in',
+    profileOverviewTitle: 'Account Overview',
+    profileOverviewDesc: 'Your basic account details are shown here.',
+    usernameLabel: 'Username',
+    languageCurrent: 'Current language',
+    tokenStatusLabel: 'Session state',
+    tokenStatusHealthy: 'Session active',
+    languagePreferenceTitle: 'Language Preference',
+    languagePreferenceDesc:
+      'When you switch the interface language, both game content and page copy update together.',
+    profileActivityTitle: 'Activity Snapshot',
+    profileActivityDesc: 'A quick summary of the content you use most on this account.',
+    profileFavoriteCount: 'Favorite games',
+    profileRecentCount: 'Recently viewed',
+    profileTopCategory: 'Top category',
+    profileQuickActionsTitle: 'Quick Actions',
+    profileQuickActionsDesc: 'Jump back to the places you use most often.',
   },
 };
