@@ -3,7 +3,6 @@ import type { AppLocale } from '../i18n/locale';
 import { getStoredLocale } from '../i18n/locale';
 
 const api = axios.create({
-  baseURL: 'http://localhost:8080',
   timeout: 5000,
   headers: {
     'Content-Type': 'application/json',
