@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type MouseEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Autoplay, Pagination } from 'swiper/modules';
@@ -38,6 +38,7 @@ const Dashboard = () => {
   const [activeHubCategory, setActiveHubCategory] = useState<string>(ALL_CATEGORY);
   const [pendingFavoriteIds, setPendingFavoriteIds] = useState<string[]>([]);
   const isLoggedIn = Boolean(localStorage.getItem('token'));
+  const forYouSectionRef = useRef<HTMLElement | null>(null);
 
   const formatReleaseDate = (releaseDate?: string) => {
     if (!releaseDate) {
@@ -316,6 +317,66 @@ const Dashboard = () => {
   const handleOpenAuthPage = () => {
     navigate('/auth');
   };
+
+  const scrollToForYouSection = () => {
+    setSearchTerm('');
+    setActiveView('home');
+
+    window.requestAnimationFrame(() => {
+      forYouSectionRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    });
+  };
+
+  const quickActions = [
+    {
+      key: 'recent',
+      label: t('syncRecentViews'),
+      detail: isLoggedIn ? t('recentlyViewedSubtitle') : t('loginToSyncHistoryDesc'),
+      accent: 'blue',
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="9"></circle>
+          <polyline points="12 7 12 12 15.5 14"></polyline>
+        </svg>
+      ),
+      onClick: () => {
+        if (!isLoggedIn) {
+          handleOpenAuthPage();
+          return;
+        }
+        setActiveView('recent');
+      },
+    },
+    {
+      key: 'hub',
+      label: t('gameHub'),
+      detail: t('gameHubSubtitle'),
+      accent: 'coral',
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+          <line x1="12" y1="22.08" x2="12" y2="12"></line>
+        </svg>
+      ),
+      onClick: () => setActiveView('hub'),
+    },
+    {
+      key: 'foryou',
+      label: t('forYou'),
+      detail: homeRecommendationMeta.subtitle,
+      accent: 'violet',
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M12 21s-6.7-4.35-9-8.28C1.05 9.52 3.05 5 7.53 5c1.8 0 3.27.92 4.47 2.35C13.2 5.92 14.67 5 16.47 5 20.95 5 22.95 9.52 21 12.72 18.7 16.65 12 21 12 21z"></path>
+        </svg>
+      ),
+      onClick: scrollToForYouSection,
+    },
+  ];
 
   const handleFavoriteClick = async (game: Game, event?: MouseEvent<HTMLButtonElement>) => {
     event?.stopPropagation();
@@ -786,15 +847,26 @@ const Dashboard = () => {
               ) : null}
 
               <div className="quick-start" style={{ justifyContent: 'flex-start', marginBottom: '32px' }}>
-                <button className="quick-btn" onClick={isLoggedIn ? undefined : handleOpenAuthPage}>
-                  <span style={{ color: '#1890ff' }}>{isLoggedIn ? '+' : '>'}</span>
-                  {t('syncRecentViews')}
-                </button>
-                <button className="quick-btn" onClick={() => setActiveView('hub')}>
-                  {t('gameHub')}
-                </button>
-                <button className="quick-btn">{t('forYou')}</button>
-                <button className="quick-btn">{t('highScoreFirst')}</button>
+                {quickActions.map((action) => (
+                  <button
+                    key={action.key}
+                    className={`quick-btn quick-btn-${action.accent}`}
+                    onClick={action.onClick}
+                    type="button"
+                  >
+                    <span className="quick-btn-icon">{action.icon}</span>
+                    <span className="quick-btn-copy">
+                      <span className="quick-btn-label">{action.label}</span>
+                      <span className="quick-btn-detail">{action.detail}</span>
+                    </span>
+                    <span className="quick-btn-arrow">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                        <polyline points="12 5 19 12 12 19"></polyline>
+                      </svg>
+                    </span>
+                  </button>
+                ))}
               </div>
 
               {!loading && todayRecommendations.length > 0 ? (
@@ -876,7 +948,7 @@ const Dashboard = () => {
                 </section>
               ) : null}
 
-              <section className="favorites-section">
+              <section className="favorites-section" ref={forYouSectionRef}>
                 <div className="favorites-head">
                   <div>
                     <span className="recommendation-kicker">{t('forYou')}</span>
