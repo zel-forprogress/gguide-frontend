@@ -3,7 +3,7 @@ import type { AppLocale } from '../i18n/locale';
 import { getStoredLocale } from '../i18n/locale';
 
 const api = axios.create({
-  timeout: 5000,
+  timeout: 60000, // 将全局超时时间增加到 60 秒，以适应 AI 响应
   headers: {
     'Content-Type': 'application/json',
   },
@@ -52,6 +52,11 @@ export interface Game {
   releaseDate: string;
   cinematicTrailer?: string;
   downloadLink?: string;
+}
+
+export interface AiMessage {
+  role: 'user' | 'assistant';
+  content: string;
 }
 
 const getErrorMessage = (error: any, fallback: string) =>
@@ -186,6 +191,18 @@ export const recordRecentViewApi = async (gameId: string) => {
     return response.data;
   } catch (error: any) {
     throw new Error(getErrorMessage(error, 'Failed to record recent view'));
+  }
+};
+
+/**
+ * AI 助手对话接口
+ */
+export const chatWithAiApi = async (messages: AiMessage[]) => {
+  try {
+    const response = await api.post<ResultVO<string>>('/api/ai/chat', { messages });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(getErrorMessage(error, 'AI 助手暂时不可用'));
   }
 };
 
