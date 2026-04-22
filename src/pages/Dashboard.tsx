@@ -14,6 +14,7 @@ import {
   removeFavoriteApi,
   type Game,
 } from '../services/api';
+import { clearStoredToken, hasStoredToken, subscribeAuthExpired } from '../utils/auth';
 import { getRecentViewIdsLocally } from '../utils/recentViews';
 
 import 'swiper/css';
@@ -39,7 +40,8 @@ const Dashboard = () => {
   const [activeHubCategory, setActiveHubCategory] = useState<string>(ALL_CATEGORY);
   const [pendingFavoriteIds, setPendingFavoriteIds] = useState<string[]>([]);
   const [isAiChatOpen, setIsAiChatOpen] = useState(false);
-  const isLoggedIn = Boolean(localStorage.getItem('token'));
+  const [isLoggedIn, setIsLoggedIn] = useState(() => hasStoredToken());
+  const [sessionNotice, setSessionNotice] = useState('');
   const forYouSectionRef = useRef<HTMLElement | null>(null);
 
   const formatReleaseDate = (releaseDate?: string) => {
@@ -60,6 +62,18 @@ const Dashboard = () => {
 
   const getPrimaryCategory = (game: Game) =>
     game.categoryLabels?.[0] || game.categories?.[0] || t('uncategorized');
+
+  useEffect(() => {
+    const unsubscribe = subscribeAuthExpired(() => {
+      setIsLoggedIn(false);
+      setFavoriteGames([]);
+      setRecentGames([]);
+      setPendingFavoriteIds([]);
+      setSessionNotice(t('sessionExpiredMessage'));
+    });
+
+    return unsubscribe;
+  }, [t]);
 
   useEffect(() => {
     const requestedView = location.state?.view as DashboardView | undefined;
@@ -305,7 +319,9 @@ const Dashboard = () => {
   );
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
+    clearStoredToken();
+    setIsLoggedIn(false);
+    setSessionNotice('');
     setFavoriteGames([]);
     setRecentGames([]);
     setActiveView('home');
@@ -838,6 +854,18 @@ const Dashboard = () => {
                   {isLoggedIn ? t('loggedInIntro') : t('guestIntro')}
                 </p>
               </div>
+
+              {sessionNotice ? (
+                <div className="guest-banner" style={{ marginBottom: '20px' }}>
+                  <div>
+                    <strong>{t('sessionExpiredTitle')}</strong>
+                    <p>{sessionNotice}</p>
+                  </div>
+                  <button className="guest-banner-btn" onClick={handleOpenAuthPage}>
+                    {t('loginOrRegister')}
+                  </button>
+                </div>
+              ) : null}
 
               {!isLoggedIn ? (
                 <div className="guest-banner">

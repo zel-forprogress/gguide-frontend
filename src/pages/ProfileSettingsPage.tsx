@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLocale } from '../i18n/LocaleProvider';
 import { getFavoritesApi, getRecentlyViewedApi, type Game } from '../services/api';
+import { clearStoredToken, subscribeAuthExpired } from '../utils/auth';
 
 type ProfileSection = 'general' | 'account' | 'language' | 'library' | 'session';
 
@@ -97,6 +98,14 @@ const ProfileSettingsPage = () => {
   );
 
   useEffect(() => {
+    const unsubscribe = subscribeAuthExpired(() => {
+      navigate('/auth', { replace: true, state: { reason: 'session-expired' } });
+    });
+
+    return unsubscribe;
+  }, [navigate]);
+
+  useEffect(() => {
     let cancelled = false;
 
     const fetchProfileData = async () => {
@@ -154,7 +163,7 @@ const ProfileSettingsPage = () => {
   }, [favoriteGames]);
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
+    clearStoredToken();
     navigate('/auth', { replace: true });
   };
 

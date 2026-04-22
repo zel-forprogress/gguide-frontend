@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { getStoredLocale, persistLocale, type AppLocale } from './locale';
 import { messages, type MessageKey } from './messages';
+import { messageExtras } from './messageExtras';
 
 type LocaleContextValue = {
   locale: AppLocale;
@@ -22,7 +23,7 @@ export const LocaleProvider = ({ children }: { children: ReactNode }) => {
     () => ({
       locale,
       setLocale: setLocaleState,
-      t: (key: MessageKey) => messages[locale][key],
+      t: (key: MessageKey) => messageExtras[locale][key] ?? messages[locale][key] ?? key,
     }),
     [locale]
   );

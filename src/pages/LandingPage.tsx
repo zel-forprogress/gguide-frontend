@@ -1,17 +1,26 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import LanguageSwitcher from '../components/LanguageSwitcher';
 import { useLocale } from '../i18n/LocaleProvider';
 import { loginApi, registerApi } from '../services/api';
+import { setStoredToken } from '../utils/auth';
 
 const LandingPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useLocale();
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (location.state?.reason === 'session-expired') {
+      setError(t('sessionExpiredMessage'));
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.pathname, location.state, navigate, t]);
 
   const handleBackHome = () => {
     navigate('/');
@@ -64,7 +73,7 @@ const LandingPage = () => {
       if (isLoginMode) {
         const response = await loginApi({ username, password });
         if (response.data && response.data.token) {
-          localStorage.setItem('token', response.data.token);
+          setStoredToken(response.data.token);
           navigate('/');
         } else {
           setError(t('missingToken'));

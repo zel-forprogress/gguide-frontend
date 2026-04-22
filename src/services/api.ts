@@ -1,6 +1,28 @@
 import axios from 'axios';
 import type { AppLocale } from '../i18n/locale';
 import { getStoredLocale } from '../i18n/locale';
+import { clearStoredToken, getStoredToken } from '../utils/auth';
+
+const getErrorMessage = (error: any, fallback: string) =>
+  error.response?.data?.message || error.response?.data?.error || fallback;
+
+export class UnauthorizedError extends Error {
+  status: number;
+
+  constructor(message = 'Unauthorized') {
+    super(message);
+    this.name = 'UnauthorizedError';
+    this.status = 401;
+  }
+}
+
+const throwAppError = (error: any, fallback: string): never => {
+  if (error instanceof UnauthorizedError) {
+    throw error;
+  }
+
+  throw new Error(getErrorMessage(error, fallback));
+};
 
 const api = axios.create({
   timeout: 60000, // 将全局超时时间增加到 60 秒，以适应 AI 响应
@@ -11,7 +33,7 @@ const api = axios.create({
 
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = getStoredToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -24,8 +46,10 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      window.location.href = '/auth';
+      clearStoredToken({ reason: 'expired' });
+      return Promise.reject(
+        new UnauthorizedError(getErrorMessage(error, 'Session expired. Please log in again.'))
+      );
     }
     return Promise.reject(error);
   }
@@ -59,9 +83,6 @@ export interface AiMessage {
   content: string;
 }
 
-const getErrorMessage = (error: any, fallback: string) =>
-  error.response?.data?.message || error.response?.data?.error || fallback;
-
 export const loginApi = async (data: { username: string; password: string }) => {
   try {
     const response = await api.post<ResultVO<{ token: string }>>('/api/auth/login', data);
@@ -70,7 +91,7 @@ export const loginApi = async (data: { username: string; password: string }) => 
     }
     throw new Error(response.data.message || 'Login failed');
   } catch (error: any) {
-    throw new Error(getErrorMessage(error, 'Login failed'));
+    return throwAppError(error, 'Login failed');
   }
 };
 
@@ -79,7 +100,7 @@ export const registerApi = async (data: { username: string; password: string }) 
     const response = await api.post<ResultVO<string>>('/api/auth/register', data);
     return response.data;
   } catch (error: any) {
-    throw new Error(getErrorMessage(error, 'Register failed'));
+    return throwAppError(error, 'Register failed');
   }
 };
 
@@ -121,7 +142,7 @@ export const getGamesApi = async (locale?: AppLocale) => {
     });
     return response.data;
   } catch (error: any) {
-    throw new Error(getErrorMessage(error, 'Failed to load games'));
+    return throwAppError(error, 'Failed to load games');
   }
 };
 
@@ -132,7 +153,7 @@ export const getGameDetailApi = async (id: string, locale?: AppLocale) => {
     });
     return response.data;
   } catch (error: any) {
-    throw new Error(getErrorMessage(error, 'Failed to load game detail'));
+    return throwAppError(error, 'Failed to load game detail');
   }
 };
 
@@ -143,7 +164,7 @@ export const getFavoritesApi = async (locale?: AppLocale) => {
     });
     return response.data;
   } catch (error: any) {
-    throw new Error(getErrorMessage(error, 'Failed to load favorites'));
+    return throwAppError(error, 'Failed to load favorites');
   }
 };
 
@@ -152,7 +173,7 @@ export const getFavoriteStatusApi = async (gameId: string) => {
     const response = await api.get<ResultVO<boolean>>(`/api/favorites/${gameId}/status`);
     return response.data;
   } catch (error: any) {
-    throw new Error(getErrorMessage(error, 'Failed to load favorite status'));
+    return throwAppError(error, 'Failed to load favorite status');
   }
 };
 
@@ -161,7 +182,7 @@ export const addFavoriteApi = async (gameId: string) => {
     const response = await api.post<ResultVO<boolean>>(`/api/favorites/${gameId}`);
     return response.data;
   } catch (error: any) {
-    throw new Error(getErrorMessage(error, 'Failed to add favorite'));
+    return throwAppError(error, 'Failed to add favorite');
   }
 };
 
@@ -170,7 +191,7 @@ export const removeFavoriteApi = async (gameId: string) => {
     const response = await api.delete<ResultVO<boolean>>(`/api/favorites/${gameId}`);
     return response.data;
   } catch (error: any) {
-    throw new Error(getErrorMessage(error, 'Failed to remove favorite'));
+    return throwAppError(error, 'Failed to remove favorite');
   }
 };
 
@@ -181,7 +202,7 @@ export const getRecentlyViewedApi = async (locale?: AppLocale) => {
     });
     return response.data;
   } catch (error: any) {
-    throw new Error(getErrorMessage(error, 'Failed to load recently viewed games'));
+    return throwAppError(error, 'Failed to load recently viewed games');
   }
 };
 
@@ -190,7 +211,7 @@ export const recordRecentViewApi = async (gameId: string) => {
     const response = await api.post<ResultVO<boolean>>(`/api/recently-viewed/${gameId}`);
     return response.data;
   } catch (error: any) {
-    throw new Error(getErrorMessage(error, 'Failed to record recent view'));
+    return throwAppError(error, 'Failed to record recent view');
   }
 };
 

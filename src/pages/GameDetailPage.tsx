@@ -11,18 +11,20 @@ import {
   removeFavoriteApi,
   type Game,
 } from '../services/api';
+import { hasStoredToken, subscribeAuthExpired } from '../utils/auth';
 import { saveRecentViewLocally } from '../utils/recentViews';
 
 const GameDetailPage = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const { locale, t } = useLocale();
-  const isLoggedIn = Boolean(localStorage.getItem('token'));
+  const [isLoggedIn, setIsLoggedIn] = useState(() => hasStoredToken());
   const [game, setGame] = useState<Game | null>(null);
   const [loading, setLoading] = useState(true);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [error, setError] = useState('');
+  const [sessionNotice, setSessionNotice] = useState('');
 
   const formatReleaseDate = (releaseDate?: string) => {
     if (!releaseDate) {
@@ -52,6 +54,17 @@ const GameDetailPage = () => {
   const getRegionText = (item?: Game | null) => item?.regionLabel || 'Unknown';
 
   useEffect(() => {
+    const unsubscribe = subscribeAuthExpired(() => {
+      setIsLoggedIn(false);
+      setIsFavorite(false);
+      setFavoriteLoading(false);
+      setSessionNotice(t('sessionExpiredMessage'));
+    });
+
+    return unsubscribe;
+  }, [t]);
+
+  useEffect(() => {
     let cancelled = false;
 
     const fetchGameDetail = async () => {
@@ -64,11 +77,7 @@ const GameDetailPage = () => {
       try {
         setLoading(true);
         setError('');
-
-        const [gameResponse, favoriteResponse] = await Promise.all([
-          getGameDetailApi(id, locale),
-          isLoggedIn ? getFavoriteStatusApi(id) : Promise.resolve(null),
-        ]);
+        const gameResponse = await getGameDetailApi(id, locale);
 
         if (cancelled) {
           return;
@@ -80,10 +89,26 @@ const GameDetailPage = () => {
           setError(gameResponse.message || t('gameUnavailable'));
         }
 
-        if (favoriteResponse?.code === 200) {
-          setIsFavorite(Boolean(favoriteResponse.data));
-        } else if (!isLoggedIn) {
+        if (!isLoggedIn) {
           setIsFavorite(false);
+          return;
+        }
+
+        try {
+          const favoriteResponse = await getFavoriteStatusApi(id);
+          if (!cancelled && favoriteResponse.code === 200) {
+            setIsFavorite(Boolean(favoriteResponse.data));
+          }
+        } catch (favoriteError: any) {
+          if (!cancelled) {
+            setIsFavorite(false);
+            if (favoriteError?.status === 401) {
+              setIsLoggedIn(false);
+              setSessionNotice(t('sessionExpiredMessage'));
+            } else {
+              console.error('Failed to load favorite status', favoriteError);
+            }
+          }
         }
       } catch (err: any) {
         if (!cancelled) {
@@ -280,7 +305,11 @@ const GameDetailPage = () => {
               </button>
             </div>
 
-            {!isLoggedIn ? <p className="detail-login-tip">{t('guestDetailTip')}</p> : null}
+            {sessionNotice ? (
+              <p className="detail-login-tip">{sessionNotice}</p>
+            ) : !isLoggedIn ? (
+              <p className="detail-login-tip">{t('guestDetailTip')}</p>
+            ) : null}
           </div>
         </section>
 

@@ -27,6 +27,7 @@ export type MessageKey =
   | 'hubBrowseSubtitle'
   | 'hubNoMatchesTitle'
   | 'hubNoMatchesDesc'
+  | 'aiAssistant'
   | 'aiAssistantPending'
   | 'searchRecommendedGames'
   | 'searchRecentGames'
@@ -41,6 +42,8 @@ export type MessageKey =
   | 'guestIntro'
   | 'guestBannerTitle'
   | 'guestBannerDesc'
+  | 'sessionExpiredTitle'
+  | 'sessionExpiredMessage'
   | 'goLogin'
   | 'syncRecentViews'
   | 'todayPicks'
@@ -134,7 +137,7 @@ export type MessageKey =
   | 'profileQuickActionsTitle'
   | 'profileQuickActionsDesc';
 
-type Messages = Record<MessageKey, string>;
+type Messages = Record<string, string>;
 
 export const messages: Record<AppLocale, Messages> = {
   'zh-CN': {
