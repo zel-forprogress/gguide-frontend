@@ -20,7 +20,7 @@ import { getRecentViewIdsLocally } from '../utils/recentViews';
 import 'swiper/css';
 import 'swiper/css/pagination';
 
-type DashboardView = 'home' | 'recent' | 'favorites' | 'hub';
+type DashboardView = 'home' | 'recent' | 'favorites' | 'hub' | 'ai';
 type RecommendationMode = 'favorite' | 'recent' | 'top';
 const ALL_CATEGORY = 'ALL';
 
@@ -39,7 +39,6 @@ const Dashboard = () => {
   const [activeView, setActiveView] = useState<DashboardView>('home');
   const [activeHubCategory, setActiveHubCategory] = useState<string>(ALL_CATEGORY);
   const [pendingFavoriteIds, setPendingFavoriteIds] = useState<string[]>([]);
-  const [isAiChatOpen, setIsAiChatOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => hasStoredToken());
   const [sessionNotice, setSessionNotice] = useState('');
   const forYouSectionRef = useRef<HTMLElement | null>(null);
@@ -77,7 +76,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     const requestedView = location.state?.view as DashboardView | undefined;
-    if (requestedView && ['home', 'recent', 'favorites', 'hub'].includes(requestedView)) {
+    if (requestedView && ['home', 'recent', 'favorites', 'hub', 'ai'].includes(requestedView)) {
       setActiveView(requestedView);
       navigate(location.pathname, { replace: true, state: null });
     }
@@ -715,13 +714,33 @@ const Dashboard = () => {
     );
   };
 
+  const renderAiAssistantSection = () => (
+    <section className="ai-assistant-page">
+      <div className="ai-assistant-header">
+        <div>
+          <span className="recommendation-kicker">{t('aiAssistant')}</span>
+          <h2 className="recommendation-title">和 G-Guide AI 对话</h2>
+        </div>
+        <p className="recommendation-subtitle">
+          这里直接占用右侧主内容区。你可以让它推荐游戏、解释差异、整理玩法方向，或者按偏好筛选平台里的作品。
+        </p>
+      </div>
+
+      <div className="ai-assistant-shell">
+        <AiChatBox layout="panel" onClose={() => setActiveView('home')} />
+      </div>
+    </section>
+  );
+
   const searchPlaceholder =
     activeView === 'favorites'
       ? t('searchFavoriteGames')
       : activeView === 'recent'
         ? t('searchRecentGames')
         : activeView === 'hub'
-          ? t('searchGameHub')
+        ? t('searchGameHub')
+        : activeView === 'ai'
+          ? '搜索你想聊的主题'
           : t('searchRecommendedGames');
 
   return (
@@ -788,9 +807,9 @@ const Dashboard = () => {
             {t('gameHub')}
           </div>
 
-          <div 
-            className={`nav-item${isAiChatOpen ? ' active' : ''}`}
-            onClick={() => setIsAiChatOpen(true)}
+          <div
+            className={`nav-item${activeView === 'ai' ? ' active' : ''}`}
+            onClick={() => setActiveView('ai')}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
@@ -843,9 +862,9 @@ const Dashboard = () => {
           </div>
         </header>
 
-        <section className="content-grid-section" style={{ marginTop: '40px' }}>
-          {activeView === 'home' ? (
-            <>
+        <section className="content-grid-section dashboard-primary-section" style={{ marginTop: '40px' }}>
+            {activeView === 'home' ? (
+              <>
               <div style={{ marginBottom: '32px' }}>
                 <h1 style={{ fontSize: '28px', marginBottom: '8px', textAlign: 'left' }}>
                   {isLoggedIn ? t('welcomeBack') : t('guestWelcomeTitle')}
@@ -1011,44 +1030,44 @@ const Dashboard = () => {
                   renderGameGrid(filteredHomeRecommendedGames)
                 )}
               </section>
-            </>
-          ) : null}
+              </>
+            ) : null}
 
-          {activeView === 'recent'
-            ? renderLibrarySection(
-                t('recentlyViewed'),
-                t('recentlyViewedSubtitle'),
-                filteredRecentGames,
-                {
-                  loading: recentLoading,
-                  emptyTitle: t('recentlyViewedEmptyTitle'),
-                  emptyDescription: t('recentlyViewedEmptyDesc'),
-                }
-              )
-            : null}
+            {activeView === 'recent'
+              ? renderLibrarySection(
+                  t('recentlyViewed'),
+                  t('recentlyViewedSubtitle'),
+                  filteredRecentGames,
+                  {
+                    loading: recentLoading,
+                    emptyTitle: t('recentlyViewedEmptyTitle'),
+                    emptyDescription: t('recentlyViewedEmptyDesc'),
+                  }
+                )
+              : null}
 
-          {activeView === 'hub' ? renderGameHubSection() : null}
+            {activeView === 'hub' ? renderGameHubSection() : null}
 
-          {activeView === 'favorites'
-            ? renderLibrarySection(
-                t('favorites'),
-                t('favoritesSubtitle'),
-                filteredFavoriteGames,
-                {
-                  loading: favoritesLoading,
-                  emptyTitle:
-                    favoriteGames.length === 0 ? t('favoritesEmptyTitle') : t('favoritesNoMatchTitle'),
-                  emptyDescription:
-                    favoriteGames.length === 0 ? t('favoritesEmptyDesc') : t('favoritesNoMatchDesc'),
-                  guestTitle: t('loginToSyncFavoritesTitle'),
-                  guestDescription: t('loginToSyncFavoritesDesc'),
-                  showGuestLogin: true,
-                }
-              )
-            : null}
+            {activeView === 'favorites'
+              ? renderLibrarySection(
+                  t('favorites'),
+                  t('favoritesSubtitle'),
+                  filteredFavoriteGames,
+                  {
+                    loading: favoritesLoading,
+                    emptyTitle:
+                      favoriteGames.length === 0 ? t('favoritesEmptyTitle') : t('favoritesNoMatchTitle'),
+                    emptyDescription:
+                      favoriteGames.length === 0 ? t('favoritesEmptyDesc') : t('favoritesNoMatchDesc'),
+                    guestTitle: t('loginToSyncFavoritesTitle'),
+                    guestDescription: t('loginToSyncFavoritesDesc'),
+                    showGuestLogin: true,
+                  }
+                )
+              : null}
+
+            {activeView === 'ai' ? renderAiAssistantSection() : null}
         </section>
-
-        {isAiChatOpen && <AiChatBox onClose={() => setIsAiChatOpen(false)} />}
       </main>
     </div>
   );
