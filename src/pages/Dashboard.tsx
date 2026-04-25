@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type MouseEvent } from 'react';
+import { useEffect, useMemo, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Autoplay, Pagination } from 'swiper/modules';
@@ -24,6 +24,9 @@ import 'swiper/css/pagination';
 
 type DashboardView = 'home' | 'recent' | 'favorites' | 'hub' | 'ai';
 type RecommendationMode = 'favorite' | 'recent' | 'top';
+type SearchSuggestion =
+  | { type: 'game'; game: Game }
+  | { type: 'conversation'; conversation: AiConversationSummary };
 const ALL_CATEGORY = 'ALL';
 
 const Dashboard = () => {
@@ -38,6 +41,8 @@ const Dashboard = () => {
   const [recentLoading, setRecentLoading] = useState(false);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchDraft, setSearchDraft] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [activeView, setActiveView] = useState<DashboardView>('home');
   const [activeHubCategory, setActiveHubCategory] = useState<string>(ALL_CATEGORY);
   const [pendingFavoriteIds, setPendingFavoriteIds] = useState<string[]>([]);
@@ -206,27 +211,80 @@ const Dashboard = () => {
   const todayRecommendations = useMemo(() => sortedByRating.slice(0, 5), [sortedByRating]);
 
   const searchKeyword = searchTerm.trim().toLowerCase();
+  const searchDraftKeyword = searchDraft.trim().toLowerCase();
+
+  const getGameTitleSearchableText = (game: Game) =>
+    [
+      game.title,
+      ...Object.values(game.titleI18n || {}),
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+  const getConversationTitleSearchableText = (conversation: AiConversationSummary) =>
+    conversation.title?.toLowerCase() || '';
 
   const matchesKeyword = (game: Game) => {
     if (!searchKeyword) {
       return true;
     }
 
-    return [
-      game.title,
-      game.description,
-      game.regionLabel,
-      game.regionCode,
-      ...(game.categoryLabels || []),
-      ...(game.categories || []),
-      ...Object.values(game.titleI18n || {}),
-      ...Object.values(game.descriptionI18n || {}),
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase()
-      .includes(searchKeyword);
+    return getGameTitleSearchableText(game).includes(searchKeyword);
   };
+
+  const matchesConversationKeyword = (conversation: AiConversationSummary) => {
+    if (!searchKeyword) {
+      return true;
+    }
+
+    return getConversationTitleSearchableText(conversation).includes(searchKeyword);
+  };
+
+  const gameSearchSource = useMemo(() => {
+    if (activeView === 'favorites') {
+      return favoriteGames;
+    }
+
+    if (activeView === 'recent') {
+      return recentGames;
+    }
+
+    if (activeView === 'ai') {
+      return [];
+    }
+
+    return games;
+  }, [activeView, favoriteGames, games, recentGames]);
+
+  const searchSuggestions = useMemo<SearchSuggestion[]>(() => {
+    if (!searchDraftKeyword) {
+      return [];
+    }
+
+    if (activeView === 'ai') {
+      return aiConversations
+        .filter((conversation) =>
+          getConversationTitleSearchableText(conversation).includes(searchDraftKeyword)
+        )
+        .slice(0, 6)
+        .map((conversation) => ({ type: 'conversation', conversation }));
+    }
+
+    return gameSearchSource
+      .filter((game) => getGameTitleSearchableText(game).includes(searchDraftKeyword))
+      .slice(0, 6)
+      .map((game) => ({ type: 'game', game }));
+  }, [activeView, aiConversations, gameSearchSource, searchDraftKeyword]);
+
+  const showSearchSuggestions =
+    isSearchFocused && searchDraftKeyword.length > 0 && searchSuggestions.length > 0;
+
+  useEffect(() => {
+    setSearchTerm('');
+    setSearchDraft('');
+    setIsSearchFocused(false);
+  }, [activeView]);
 
   const homeRecommendationMeta = useMemo(() => {
     if (isLoggedIn && favoriteGames.length > 0) {
@@ -282,10 +340,10 @@ const Dashboard = () => {
     return nextGames.slice(0, 6);
   }, [homeRecommendationMeta, sortedByRating]);
 
-  const filteredHomeRecommendedGames = useMemo(
-    () => homeRecommendedGames.filter(matchesKeyword),
-    [homeRecommendedGames, searchKeyword]
-  );
+  const filteredHomeRecommendedGames = useMemo(() => {
+    const source = searchKeyword ? games : homeRecommendedGames;
+    return source.filter(matchesKeyword);
+  }, [games, homeRecommendedGames, searchKeyword]);
 
   const filteredFavoriteGames = useMemo(
     () => favoriteGames.filter(matchesKeyword),
@@ -344,9 +402,14 @@ const Dashboard = () => {
     [hubSourceGames]
   );
 
-  const hubFilteredGames = useMemo(
-    () => hubSourceGames.filter(matchesKeyword),
-    [hubSourceGames, searchKeyword]
+  const hubFilteredGames = useMemo(() => {
+    const source = searchKeyword ? games : hubSourceGames;
+    return source.filter(matchesKeyword);
+  }, [games, hubSourceGames, searchKeyword]);
+
+  const filteredAiConversations = useMemo(
+    () => aiConversations.filter(matchesConversationKeyword),
+    [aiConversations, searchKeyword]
   );
 
   const handleLogout = () => {
@@ -366,6 +429,29 @@ const Dashboard = () => {
 
   const handleOpenAuthPage = () => {
     navigate('/auth');
+  };
+
+  const commitSearch = (keyword = searchDraft) => {
+    setSearchTerm(keyword);
+    setSearchDraft(keyword);
+    setIsSearchFocused(false);
+  };
+
+  const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      commitSearch();
+    }
+  };
+
+  const handleSelectSearchSuggestion = (suggestion: SearchSuggestion) => {
+    if (suggestion.type === 'conversation') {
+      commitSearch(suggestion.conversation.title || t('aiUntitledChat'));
+      setActiveAiConversationId(suggestion.conversation.id);
+      return;
+    }
+
+    commitSearch(suggestion.game.title);
+    handleOpenGameDetail(suggestion.game.id);
   };
 
   const handleFavoriteClick = async (game: Game, event?: MouseEvent<HTMLButtonElement>) => {
@@ -719,9 +805,11 @@ const Dashboard = () => {
           <p className="ai-history-empty">{t('aiHistoryLoading')}</p>
         ) : aiConversations.length === 0 ? (
           <p className="ai-history-empty">{t('aiHistoryEmpty')}</p>
+        ) : filteredAiConversations.length === 0 ? (
+          <p className="ai-history-empty">{t('emptyStateTitle')}</p>
         ) : (
           <div className="ai-history-list">
-            {aiConversations.map((conversation) => (
+            {filteredAiConversations.map((conversation) => (
               <button
                 key={conversation.id}
                 type="button"
@@ -845,17 +933,86 @@ const Dashboard = () => {
 
       <main className="main-content">
         <header className="top-header">
-          <div className="search-bar">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <input
-              type="text"
-              placeholder={searchPlaceholder}
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-            />
+          <div className="search-shell">
+            <div className="search-bar">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input
+                type="text"
+                placeholder={searchPlaceholder}
+                value={searchDraft}
+                onChange={(event) => setSearchDraft(event.target.value)}
+                onFocus={() => setIsSearchFocused(true)}
+                onBlur={() => setIsSearchFocused(false)}
+                onKeyDown={handleSearchKeyDown}
+              />
+            </div>
+
+            {showSearchSuggestions ? (
+              <div className="search-suggestions" role="listbox">
+                {searchSuggestions.map((suggestion) => {
+                  if (suggestion.type === 'conversation') {
+                    const conversation = suggestion.conversation;
+                    return (
+                      <button
+                        key={conversation.id}
+                        type="button"
+                        className="search-suggestion-item"
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          handleSelectSearchSuggestion(suggestion);
+                        }}
+                      >
+                        <span className="search-suggestion-thumb search-suggestion-thumb-fallback">
+                          AI
+                        </span>
+                        <span className="search-suggestion-copy">
+                          <strong>{conversation.title || t('aiUntitledChat')}</strong>
+                          <small>
+                            {conversation.preview ||
+                              `${conversation.messageCount} ${t('aiHistoryMessageCount')}`}
+                          </small>
+                        </span>
+                      </button>
+                    );
+                  }
+
+                  const game = suggestion.game;
+                  return (
+                  <button
+                    key={game.id}
+                    type="button"
+                    className="search-suggestion-item"
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      handleSelectSearchSuggestion(suggestion);
+                    }}
+                  >
+                    {game.coverImage ? (
+                      <span
+                        className="search-suggestion-thumb"
+                        style={{ backgroundImage: `url(${game.coverImage})` }}
+                      />
+                    ) : (
+                      <span className="search-suggestion-thumb search-suggestion-thumb-fallback">
+                        {game.title.slice(0, 1)}
+                      </span>
+                    )}
+                    <span className="search-suggestion-copy">
+                      <strong>{game.title}</strong>
+                      <small>
+                        {getPrimaryCategory(game)}
+                        {' · '}
+                        {typeof game.rating === 'number' ? `${game.rating.toFixed(1)} / 10` : t('noRating')}
+                      </small>
+                    </span>
+                  </button>
+                  );
+                })}
+              </div>
+            ) : null}
           </div>
 
           <div className="top-header-actions">

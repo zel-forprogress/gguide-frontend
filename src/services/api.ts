@@ -88,6 +88,7 @@ export interface AiConversationSummary {
   title: string;
   updatedAt: string;
   messageCount: number;
+  preview?: string;
 }
 
 export interface AiConversation extends AiConversationSummary {
