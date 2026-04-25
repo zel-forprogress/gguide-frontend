@@ -83,6 +83,26 @@ export interface AiMessage {
   content: string;
 }
 
+export interface AiConversationSummary {
+  id: string;
+  title: string;
+  updatedAt: string;
+  messageCount: number;
+}
+
+export interface AiConversation extends AiConversationSummary {
+  messages: AiMessage[];
+  createdAt: string;
+}
+
+export interface AiChatResponse {
+  conversationId: string;
+  title: string;
+  response: string;
+  messages: AiMessage[];
+  updatedAt: string;
+}
+
 export const loginApi = async (data: { username: string; password: string }) => {
   try {
     const response = await api.post<ResultVO<{ token: string }>>('/api/auth/login', data);
@@ -218,12 +238,35 @@ export const recordRecentViewApi = async (gameId: string) => {
 /**
  * AI 助手对话接口
  */
-export const chatWithAiApi = async (messages: AiMessage[]) => {
+export const chatWithAiApi = async (messages: AiMessage[], conversationId?: string | null) => {
   try {
-    const response = await api.post<ResultVO<string>>('/api/ai/chat', { messages });
+    const response = await api.post<ResultVO<AiChatResponse>>('/api/ai/chat', {
+      conversationId,
+      messages,
+    });
     return response.data;
   } catch (error: any) {
     throw new Error(getErrorMessage(error, 'AI 助手暂时不可用'));
+  }
+};
+
+export const getAiConversationsApi = async () => {
+  try {
+    const response = await api.get<ResultVO<AiConversationSummary[]>>('/api/ai/conversations');
+    return response.data;
+  } catch (error: any) {
+    return throwAppError(error, 'Failed to load AI chat history');
+  }
+};
+
+export const getAiConversationApi = async (conversationId: string) => {
+  try {
+    const response = await api.get<ResultVO<AiConversation>>(
+      `/api/ai/conversations/${conversationId}`
+    );
+    return response.data;
+  } catch (error: any) {
+    return throwAppError(error, 'Failed to load AI chat conversation');
   }
 };
 

@@ -8,10 +8,12 @@ import AiChatBox from '../components/AiChatBox';
 import { useLocale } from '../i18n/LocaleProvider';
 import {
   addFavoriteApi,
+  getAiConversationsApi,
   getFavoritesApi,
   getGamesApi,
   getRecentlyViewedApi,
   removeFavoriteApi,
+  type AiConversationSummary,
   type Game,
 } from '../services/api';
 import { clearStoredToken, hasStoredToken, subscribeAuthExpired } from '../utils/auth';
@@ -40,6 +42,9 @@ const Dashboard = () => {
   const [activeHubCategory, setActiveHubCategory] = useState<string>(ALL_CATEGORY);
   const [pendingFavoriteIds, setPendingFavoriteIds] = useState<string[]>([]);
   const [isLoggedIn, setIsLoggedIn] = useState(() => hasStoredToken());
+  const [aiConversations, setAiConversations] = useState<AiConversationSummary[]>([]);
+  const [activeAiConversationId, setActiveAiConversationId] = useState<string | null>(null);
+  const [aiHistoryLoading, setAiHistoryLoading] = useState(false);
 
   const formatReleaseDate = (releaseDate?: string) => {
     if (!releaseDate) {
@@ -66,10 +71,40 @@ const Dashboard = () => {
       setFavoriteGames([]);
       setRecentGames([]);
       setPendingFavoriteIds([]);
+      setAiConversations([]);
+      setActiveAiConversationId(null);
     });
 
     return unsubscribe;
   }, []);
+
+  const loadAiConversations = async () => {
+    if (!isLoggedIn) {
+      setAiConversations([]);
+      setActiveAiConversationId(null);
+      return;
+    }
+
+    try {
+      setAiHistoryLoading(true);
+      const response = await getAiConversationsApi();
+      if (response.code === 200) {
+        setAiConversations(response.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to load AI chat history', err);
+    } finally {
+      setAiHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeView !== 'ai') {
+      return;
+    }
+
+    void loadAiConversations();
+  }, [activeView, isLoggedIn]);
 
   useEffect(() => {
     const requestedView = location.state?.view as DashboardView | undefined;
@@ -319,6 +354,8 @@ const Dashboard = () => {
     setIsLoggedIn(false);
     setFavoriteGames([]);
     setRecentGames([]);
+    setAiConversations([]);
+    setActiveAiConversationId(null);
     setActiveView('home');
     navigate('/', { replace: true });
   };
@@ -650,10 +687,70 @@ const Dashboard = () => {
     );
   };
 
+  const handleAiConversationSaved = (conversation: AiConversationSummary) => {
+    setActiveAiConversationId(conversation.id);
+    setAiConversations((current) => {
+      const next = current.filter((item) => item.id !== conversation.id);
+      return [conversation, ...next];
+    });
+  };
+
+  const handleStartNewAiChat = () => {
+    setActiveAiConversationId(null);
+  };
+
+  const renderAiHistory = () => {
+    if (activeView !== 'ai') {
+      return null;
+    }
+
+    return (
+      <div className="ai-history-panel">
+        <div className="ai-history-header">
+          <span>{t('aiHistoryTitle')}</span>
+          <button type="button" onClick={handleStartNewAiChat}>
+            {t('aiNewChat')}
+          </button>
+        </div>
+
+        {!isLoggedIn ? (
+          <p className="ai-history-empty">{t('aiHistoryLoginHint')}</p>
+        ) : aiHistoryLoading ? (
+          <p className="ai-history-empty">{t('aiHistoryLoading')}</p>
+        ) : aiConversations.length === 0 ? (
+          <p className="ai-history-empty">{t('aiHistoryEmpty')}</p>
+        ) : (
+          <div className="ai-history-list">
+            {aiConversations.map((conversation) => (
+              <button
+                key={conversation.id}
+                type="button"
+                className={`ai-history-item${
+                  activeAiConversationId === conversation.id ? ' is-active' : ''
+                }`}
+                onClick={() => setActiveAiConversationId(conversation.id)}
+              >
+                <span>{conversation.title || t('aiUntitledChat')}</span>
+                <small>
+                  {conversation.messageCount} {t('aiHistoryMessageCount')}
+                </small>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderAiAssistantSection = () => (
     <section className="ai-assistant-page">
       <div className="ai-assistant-shell">
-        <AiChatBox layout="panel" onClose={() => setActiveView('home')} />
+        <AiChatBox
+          layout="panel"
+          conversationId={activeAiConversationId}
+          onClose={() => setActiveView('home')}
+          onConversationSaved={handleAiConversationSaved}
+        />
       </div>
     </section>
   );
@@ -671,7 +768,7 @@ const Dashboard = () => {
 
   return (
     <div className="app-container">
-      <aside className="sidebar">
+      <aside className={`sidebar${activeView === 'ai' ? ' has-ai-history' : ''}`}>
         <div className="logo">
           <svg
             width="24"
@@ -743,6 +840,7 @@ const Dashboard = () => {
             {t('aiAssistant')}
           </div>
         </nav>
+        {renderAiHistory()}
       </aside>
 
       <main className="main-content">
