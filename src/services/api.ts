@@ -1,7 +1,7 @@
 import axios from 'axios';
 import type { AppLocale } from '../i18n/locale';
 import { getStoredLocale } from '../i18n/locale';
-import { clearStoredToken, getStoredToken } from '../utils/auth';
+import { clearStoredToken, getActiveStoredToken } from '../utils/auth';
 
 const getErrorMessage = (error: any, fallback: string) =>
   error.response?.data?.message || error.response?.data?.error || fallback;
@@ -33,7 +33,7 @@ const api = axios.create({
 
 api.interceptors.request.use(
   (config) => {
-    const token = getStoredToken();
+    const token = getActiveStoredToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

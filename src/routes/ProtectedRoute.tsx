@@ -20,7 +20,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   }, []);
 
   if (!hasToken) {
-    return <Navigate to="/auth" replace state={redirectReason ? { reason: redirectReason } : undefined} />;
+    return <Navigate to="/" replace state={redirectReason ? { reason: redirectReason } : undefined} />;
   }
 
   return <>{children}</>;

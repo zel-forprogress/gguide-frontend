@@ -44,6 +44,7 @@ export type MessageKey =
   | 'guestBannerDesc'
   | 'sessionExpiredTitle'
   | 'sessionExpiredMessage'
+  | 'sessionExpiredDismiss'
   | 'goLogin'
   | 'syncRecentViews'
   | 'todayPicks'
@@ -181,6 +182,7 @@ export const messages: Record<AppLocale, Messages> = {
     guestIntro: '你现在可以直接以游客身份浏览游戏内容，想同步收藏或最近查看时再登录。',
     guestBannerTitle: '当前为游客浏览模式',
     guestBannerDesc: '你可以先看列表和详情，登录后再同步收藏、最近查看等个人能力。',
+    sessionExpiredDismiss: '知道了',
     goLogin: '去登录',
     syncRecentViews: '同步最近查看',
     todayPicks: '今日推荐',
@@ -316,6 +318,7 @@ export const messages: Record<AppLocale, Messages> = {
     guestIntro: 'You can browse as a guest right now, then log in later to sync favorites and history.',
     guestBannerTitle: 'You are browsing as a guest',
     guestBannerDesc: 'Browse lists and details first, then log in to sync favorites and recent activity.',
+    sessionExpiredDismiss: 'Dismiss',
     goLogin: 'Go to login',
     syncRecentViews: 'Sync recent views',
     todayPicks: 'Today Picks',
