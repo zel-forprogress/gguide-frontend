@@ -1811,6 +1811,20 @@
   font-weight: 500;
 }
 
+.profile-status-chip.is-admin {
+  background: rgba(255, 244, 222, 0.95);
+  border-color: rgba(255, 138, 61, 0.28);
+  color: #8b4a13;
+}
+
+.profile-status-chip strong {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 94, 77, 0.12);
+  color: #ff5e4d;
+  font-size: 12px;
+}
+
 .profile-status-chip-dot {
   width: 10px;
   height: 10px;
@@ -2001,6 +2015,101 @@
   color: #fff;
 }
 
+.admin-game-card {
+  padding: 22px;
+}
+
+.admin-game-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.admin-game-field {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-game-field.is-wide {
+  grid-column: span 2;
+}
+
+.admin-game-field span {
+  color: #2f252c;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.admin-game-field input,
+.admin-game-field textarea {
+  width: 100%;
+  border: 1px solid rgba(53, 40, 53, 0.1);
+  border-radius: 14px;
+  background: rgba(250, 249, 250, 0.9);
+  color: #201820;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.admin-game-field input {
+  height: 44px;
+  padding: 0 14px;
+}
+
+.admin-game-field textarea {
+  min-height: 96px;
+  padding: 12px 14px;
+  resize: vertical;
+}
+
+.admin-game-field input:focus,
+.admin-game-field textarea:focus {
+  border-color: rgba(255, 94, 77, 0.45);
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(255, 94, 77, 0.08);
+}
+
+.admin-game-helper,
+.admin-game-message,
+.admin-game-error {
+  margin: 16px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.admin-game-helper {
+  color: #8a7b84;
+}
+
+.admin-game-message {
+  color: #2d7d46;
+  font-weight: 700;
+}
+
+.admin-game-error {
+  color: #d9363e;
+  font-weight: 700;
+}
+
+.admin-game-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.admin-game-submit {
+  min-width: 128px;
+  background: linear-gradient(135deg, #ff5e4d 0%, #ff8a3d 100%);
+  border-color: transparent;
+  color: #fff;
+}
+
+.admin-game-submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 @media (max-width: 900px) {
   .profile-settings-layout {
     grid-template-columns: 1fr;
@@ -2027,6 +2136,18 @@
   .settings-link-btn,
   .settings-segmented {
     width: 100%;
+  }
+
+  .admin-game-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-game-field.is-wide {
+    grid-column: span 1;
+  }
+
+  .admin-game-actions {
+    justify-content: stretch;
   }
 
   .settings-segmented {

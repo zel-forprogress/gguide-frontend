@@ -225,6 +225,22 @@ const Dashboard = () => {
   const getConversationTitleSearchableText = (conversation: AiConversationSummary) =>
     conversation.title?.toLowerCase() || '';
 
+  const getGameSuggestionKey = (game: Game) =>
+    (game.titleI18n?.[locale] || game.title || '').trim().toLowerCase();
+
+  const dedupeGamesByTitle = (source: Game[]) => {
+    const seen = new Set<string>();
+    return source.filter((game) => {
+      const key = getGameSuggestionKey(game) || game.id;
+      if (seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    });
+  };
+
   const matchesKeyword = (game: Game) => {
     if (!searchKeyword) {
       return true;
@@ -271,7 +287,7 @@ const Dashboard = () => {
         .map((conversation) => ({ type: 'conversation', conversation }));
     }
 
-    return gameSearchSource
+    return dedupeGamesByTitle(gameSearchSource)
       .filter((game) => getGameTitleSearchableText(game).includes(searchDraftKeyword))
       .slice(0, 6)
       .map((game) => ({ type: 'game', game }));

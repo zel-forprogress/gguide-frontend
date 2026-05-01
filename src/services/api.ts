@@ -78,6 +78,25 @@ export interface Game {
   downloadLink?: string;
 }
 
+export interface CurrentUser {
+  username: string;
+  admin: boolean;
+}
+
+export interface CreateGamePayload {
+  title: string;
+  description: string;
+  titleI18n?: Record<string, string>;
+  descriptionI18n?: Record<string, string>;
+  coverImage: string;
+  rating: number;
+  categories: string[];
+  regionCode?: string;
+  releaseDate?: string;
+  cinematicTrailer?: string;
+  downloadLink?: string;
+}
+
 export interface AiMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -122,6 +141,15 @@ export const registerApi = async (data: { username: string; password: string }) 
     return response.data;
   } catch (error: any) {
     return throwAppError(error, 'Register failed');
+  }
+};
+
+export const getCurrentUserApi = async () => {
+  try {
+    const response = await api.get<ResultVO<CurrentUser>>('/api/auth/me');
+    return response.data;
+  } catch (error: any) {
+    return throwAppError(error, 'Failed to load current user');
   }
 };
 
@@ -175,6 +203,17 @@ export const getGameDetailApi = async (id: string, locale?: AppLocale) => {
     return response.data;
   } catch (error: any) {
     return throwAppError(error, 'Failed to load game detail');
+  }
+};
+
+export const createGameApi = async (data: CreateGamePayload, locale?: AppLocale) => {
+  try {
+    const response = await api.post<ResultVO<Game>>('/api/games', data, {
+      params: { lang: locale ?? getStoredLocale() },
+    });
+    return response.data;
+  } catch (error: any) {
+    return throwAppError(error, 'Failed to create game');
   }
 };
 
