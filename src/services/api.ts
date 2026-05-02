@@ -217,6 +217,17 @@ export const createGameApi = async (data: CreateGamePayload, locale?: AppLocale)
   }
 };
 
+export const updateGameApi = async (id: string, data: CreateGamePayload, locale?: AppLocale) => {
+  try {
+    const response = await api.put<ResultVO<Game>>(`/api/games/${id}`, data, {
+      params: { lang: locale ?? getStoredLocale() },
+    });
+    return response.data;
+  } catch (error: any) {
+    return throwAppError(error, 'Failed to update game');
+  }
+};
+
 export const getFavoritesApi = async (locale?: AppLocale) => {
   try {
     const response = await api.get<ResultVO<Game[]>>('/api/favorites', {

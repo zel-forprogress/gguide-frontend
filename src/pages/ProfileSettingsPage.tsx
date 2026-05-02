@@ -5,7 +5,9 @@ import {
   createGameApi,
   getCurrentUserApi,
   getFavoritesApi,
+  getGamesApi,
   getRecentlyViewedApi,
+  updateGameApi,
   type CreateGamePayload,
   type CurrentUser,
   type Game,
@@ -13,6 +15,7 @@ import {
 import { clearStoredToken, subscribeAuthExpired } from '../utils/auth';
 
 type ProfileSection = 'general' | 'account' | 'language' | 'library' | 'session' | 'admin';
+type AdminGameMode = 'create' | 'edit';
 
 type AdminGameForm = {
   titleZh: string;
@@ -75,6 +78,60 @@ const toIsoDate = (value: string) => {
   return new Date(`${value}T00:00:00.000Z`).toISOString();
 };
 
+const toDateInputValue = (value?: string) => (value ? value.slice(0, 10) : '');
+
+const gameToAdminForm = (game: Game): AdminGameForm => ({
+  titleZh: game.titleI18n?.['zh-CN'] || game.title || '',
+  titleEn: game.titleI18n?.['en-US'] || game.title || '',
+  descriptionZh: game.descriptionI18n?.['zh-CN'] || game.description || '',
+  descriptionEn: game.descriptionI18n?.['en-US'] || game.description || '',
+  coverImage: game.coverImage || '',
+  rating: game.rating === null || game.rating === undefined ? '' : String(game.rating),
+  categories: (game.categories || []).join(', ') || 'ACTION',
+  regionCode: game.regionCode || 'UNKNOWN',
+  releaseDate: toDateInputValue(game.releaseDate),
+  cinematicTrailer: game.cinematicTrailer || '',
+  downloadLink: game.downloadLink || '',
+});
+
+const normalizeTitle = (value: string) => value.trim().toLocaleLowerCase();
+
+const normalizeSearchTitle = (value: string) =>
+  normalizeTitle(value).replace(/[\s·.。,:：;；'"“”‘’!?！？()[\]{}（）《》<>【】\-_/\\|]+/g, '');
+
+const hasCjkText = (value: string) => /[\u3400-\u9fff]/.test(value);
+
+const canUseAliasMatch = (value: string) => {
+  const compactValue = normalizeSearchTitle(value);
+  return hasCjkText(compactValue) ? compactValue.length >= 2 : compactValue.length >= 4;
+};
+
+const getGameTitleCandidates = (game: Game) => {
+  const candidates = [game.title];
+
+  if (game.titleI18n) {
+    candidates.push(...Object.values(game.titleI18n));
+  }
+
+  return candidates.map(normalizeTitle).filter(Boolean);
+};
+
+const findExistingGameByTitle = (games: Game[], titleZh: string, titleEn: string) => {
+  const queries = [titleZh, titleEn].map(normalizeTitle).filter(Boolean);
+  const searchQueries = [titleZh, titleEn].map(normalizeSearchTitle).filter(canUseAliasMatch);
+  if (queries.length === 0) {
+    return null;
+  }
+
+  return games.find((game) => {
+    const titles = getGameTitleCandidates(game);
+    const searchTitles = titles.map(normalizeSearchTitle).filter(Boolean);
+
+    return queries.some((query) => titles.includes(query))
+      || searchQueries.some((query) => searchTitles.some((title) => title.includes(query) || query.includes(title)));
+  }) || null;
+};
+
 const ProfileSettingsPage = () => {
   const navigate = useNavigate();
   const { locale, setLocale, t } = useLocale();
@@ -88,6 +145,12 @@ const ProfileSettingsPage = () => {
   const [adminSaving, setAdminSaving] = useState(false);
   const [adminMessage, setAdminMessage] = useState('');
   const [adminError, setAdminError] = useState('');
+  const [gameLibrary, setGameLibrary] = useState<Game[] | null>(null);
+  const [duplicateGame, setDuplicateGame] = useState<Game | null>(null);
+  const [adminGameMode, setAdminGameMode] = useState<AdminGameMode>('create');
+  const [editingGameId, setEditingGameId] = useState('');
+  const [editingGameQuery, setEditingGameQuery] = useState('');
+  const [gameLibraryLoading, setGameLibraryLoading] = useState(false);
 
   const token = localStorage.getItem('token');
   const tokenUsername = useMemo(() => decodeUsernameFromToken(token), [token]);
@@ -141,9 +204,17 @@ const ProfileSettingsPage = () => {
               cinematicTrailer: '预告片 URL',
               downloadLink: '下载链接',
               helper: '分类可输入 ACTION、RPG、OPEN_WORLD 等，多个分类用逗号或空格分隔。',
+              modeCreate: '添加游戏',
+              modeEdit: '编辑已有',
+              selectGame: '选择要编辑的游戏',
+              selectGamePlaceholder: '请选择游戏',
               submit: '添加游戏',
+              update: '保存修改',
               saving: '正在添加...',
+              updating: '正在保存...',
               success: '游戏已添加到游戏库。',
+              updateSuccess: '游戏信息已更新。',
+              duplicateExists: '“{title}” 已存在于游戏库中，建议直接使用已有条目，无需继续填写新增表单。',
             },
           }
         : {
@@ -190,9 +261,17 @@ const ProfileSettingsPage = () => {
               cinematicTrailer: 'Trailer URL',
               downloadLink: 'Download link',
               helper: 'Use codes like ACTION, RPG, OPEN_WORLD. Separate multiple categories with commas or spaces.',
+              modeCreate: 'Add game',
+              modeEdit: 'Edit existing',
+              selectGame: 'Select a game to edit',
+              selectGamePlaceholder: 'Select a game',
               submit: 'Add game',
+              update: 'Save changes',
               saving: 'Adding...',
+              updating: 'Saving...',
               success: 'Game added to the library.',
+              updateSuccess: 'Game details updated.',
+              duplicateExists: '"{title}" already exists in the game library. Use the existing entry instead of filling out a new one.',
             },
           },
     [locale]
@@ -274,15 +353,101 @@ const ProfileSettingsPage = () => {
       .map(([label]) => label);
   }, [favoriteGames]);
 
+  const sortedGameLibrary = useMemo(
+    () => [...(gameLibrary || [])].sort((left, right) => left.title.localeCompare(right.title, locale)),
+    [gameLibrary, locale]
+  );
+
   const handleLogout = () => {
     clearStoredToken();
     navigate('/auth', { replace: true });
+  };
+
+  const ensureGameLibrary = async () => {
+    if (gameLibrary) {
+      return gameLibrary;
+    }
+
+    setGameLibraryLoading(true);
+    try {
+      const response = await getGamesApi(locale);
+      const games = response.code === 200 ? response.data || [] : [];
+      setGameLibrary(games);
+      return games;
+    } finally {
+      setGameLibraryLoading(false);
+    }
+  };
+
+  const handleAdminModeChange = async (mode: AdminGameMode) => {
+    setAdminGameMode(mode);
+    setAdminMessage('');
+    setAdminError('');
+    setDuplicateGame(null);
+
+    if (mode === 'create') {
+      setEditingGameId('');
+      setEditingGameQuery('');
+      setAdminGameForm(emptyAdminGameForm);
+      return;
+    }
+
+    const games = await ensureGameLibrary();
+    const firstGame = games[0];
+    if (firstGame) {
+      setEditingGameId(firstGame.id);
+      setEditingGameQuery(firstGame.title);
+      setAdminGameForm(gameToAdminForm(firstGame));
+    }
+  };
+
+  const handleEditingGameQueryChange = (value: string) => {
+    setEditingGameQuery(value);
+    setAdminMessage('');
+    setAdminError('');
+    setDuplicateGame(null);
+
+    const query = normalizeTitle(value);
+    const selectedGame = gameLibrary?.find((game) => getGameTitleCandidates(game).includes(query));
+
+    if (selectedGame) {
+      setEditingGameId(selectedGame.id);
+      setAdminGameForm(gameToAdminForm(selectedGame));
+      return;
+    }
+
+    setEditingGameId('');
   };
 
   const handleAdminFieldChange = (field: keyof AdminGameForm, value: string) => {
     setAdminGameForm((current) => ({ ...current, [field]: value }));
     setAdminMessage('');
     setAdminError('');
+
+    if (adminGameMode === 'create' && (field === 'titleZh' || field === 'titleEn')) {
+      setDuplicateGame(null);
+    }
+  };
+
+  const handleAdminTitleBlur = async () => {
+    if (adminGameMode !== 'create') {
+      return;
+    }
+
+    const titleZh = adminGameForm.titleZh.trim();
+    const titleEn = adminGameForm.titleEn.trim();
+
+    if (!titleZh && !titleEn) {
+      setDuplicateGame(null);
+      return;
+    }
+
+    try {
+      const games = await ensureGameLibrary();
+      setDuplicateGame(findExistingGameByTitle(games, titleZh, titleEn));
+    } catch {
+      setDuplicateGame(null);
+    }
   };
 
   const handleCreateGame = async (event: FormEvent<HTMLFormElement>) => {
@@ -317,15 +482,27 @@ const ProfileSettingsPage = () => {
         downloadLink: adminGameForm.downloadLink.trim() || undefined,
       };
 
-      const response = await createGameApi(payload, locale);
+      const response = adminGameMode === 'edit' && editingGameId
+        ? await updateGameApi(editingGameId, payload, locale)
+        : await createGameApi(payload, locale);
       if (response.code !== 200) {
         throw new Error(response.message);
       }
 
-      setAdminGameForm(emptyAdminGameForm);
-      setAdminMessage(copy.adminForm.success);
+      if (adminGameMode === 'edit') {
+        setGameLibrary((current) => current
+          ? current.map((game) => (game.id === response.data.id ? response.data : game))
+          : current);
+        setAdminGameForm(gameToAdminForm(response.data));
+      } else {
+        setAdminGameForm(emptyAdminGameForm);
+        setGameLibrary((current) => (current ? [...current, response.data] : current));
+      }
+
+      setDuplicateGame(null);
+      setAdminMessage(adminGameMode === 'edit' ? copy.adminForm.updateSuccess : copy.adminForm.success);
     } catch (err: any) {
-      setAdminError(err.message || 'Failed to create game');
+      setAdminError(err.message || (adminGameMode === 'edit' ? 'Failed to update game' : 'Failed to create game'));
     } finally {
       setAdminSaving(false);
     }
@@ -336,8 +513,8 @@ const ProfileSettingsPage = () => {
     { key: 'account', title: copy.sections.account.title },
     { key: 'language', title: copy.sections.language.title },
     { key: 'library', title: copy.sections.library.title },
-    ...(isAdmin ? [{ key: 'admin' as ProfileSection, title: copy.sections.admin.title }] : []),
     { key: 'session', title: copy.sections.session.title },
+    ...(isAdmin ? [{ key: 'admin' as ProfileSection, title: copy.sections.admin.title }] : []),
   ];
 
   const renderSettingRow = (
@@ -436,15 +613,16 @@ const ProfileSettingsPage = () => {
   const renderAdminField = (
     field: keyof AdminGameForm,
     label: string,
-    options?: { required?: boolean; type?: string; multiline?: boolean; placeholder?: string }
+    options?: { required?: boolean; type?: string; multiline?: boolean; placeholder?: string; className?: string; onBlur?: () => void }
   ) => (
-    <label className={`admin-game-field${options?.multiline ? ' is-wide' : ''}`}>
+    <label className={`admin-game-field${options?.multiline ? ' is-wide' : ''}${options?.className ? ` ${options.className}` : ''}`}>
       <span>{label}</span>
       {options?.multiline ? (
         <textarea
           value={adminGameForm[field]}
           required={options.required}
           placeholder={options.placeholder}
+          onBlur={options.onBlur}
           onChange={(event) => handleAdminFieldChange(field, event.target.value)}
         />
       ) : (
@@ -456,6 +634,7 @@ const ProfileSettingsPage = () => {
           step={options?.type === 'number' ? '0.1' : undefined}
           min={options?.type === 'number' ? '0' : undefined}
           max={options?.type === 'number' ? '10' : undefined}
+          onBlur={options?.onBlur}
           onChange={(event) => handleAdminFieldChange(field, event.target.value)}
         />
       )}
@@ -464,31 +643,111 @@ const ProfileSettingsPage = () => {
 
   const renderAdminSection = () => (
     <form className="settings-card admin-game-card" onSubmit={handleCreateGame}>
-      <div className="admin-game-form-grid">
-        {renderAdminField('titleZh', copy.adminForm.titleZh, { required: true, placeholder: '塞尔达传说' })}
-        {renderAdminField('titleEn', copy.adminForm.titleEn, { placeholder: 'The Legend of Zelda' })}
-        {renderAdminField('descriptionZh', copy.adminForm.descriptionZh, { required: true, multiline: true })}
-        {renderAdminField('descriptionEn', copy.adminForm.descriptionEn, { multiline: true })}
-        {renderAdminField('coverImage', copy.adminForm.coverImage, { required: true, placeholder: 'https://...' })}
-        {renderAdminField('rating', copy.adminForm.rating, { required: true, type: 'number', placeholder: '9.5' })}
-        {renderAdminField('categories', copy.adminForm.categories, { required: true, placeholder: 'ACTION, RPG' })}
-        {renderAdminField('regionCode', copy.adminForm.regionCode, { placeholder: 'JP' })}
-        {renderAdminField('releaseDate', copy.adminForm.releaseDate, {
-          placeholder: copy.adminForm.releaseDatePlaceholder,
-        })}
-        {renderAdminField('cinematicTrailer', copy.adminForm.cinematicTrailer, { placeholder: 'https://...' })}
-        {renderAdminField('downloadLink', copy.adminForm.downloadLink, { placeholder: 'https://...' })}
+      <div className="admin-game-card-head">
+        <div>
+          <span className="admin-game-kicker">{copy.adminBadge}</span>
+          <h2>{copy.sections.admin.title}</h2>
+          <p>{copy.sections.admin.description}</p>
+        </div>
+        <div className="admin-game-head-actions">
+          <div className="admin-game-mode-switch">
+            <button
+              type="button"
+              className={`admin-game-mode-btn${adminGameMode === 'create' ? ' is-active' : ''}`}
+              onClick={() => void handleAdminModeChange('create')}
+            >
+              {copy.adminForm.modeCreate}
+            </button>
+            <button
+              type="button"
+              className={`admin-game-mode-btn${adminGameMode === 'edit' ? ' is-active' : ''}`}
+              onClick={() => void handleAdminModeChange('edit')}
+            >
+              {copy.adminForm.modeEdit}
+            </button>
+          </div>
+          <button type="submit" className="settings-link-btn admin-game-submit" disabled={adminSaving || (adminGameMode === 'edit' && !editingGameId)}>
+            {adminSaving
+              ? (adminGameMode === 'edit' ? copy.adminForm.updating : copy.adminForm.saving)
+              : (adminGameMode === 'edit' ? copy.adminForm.update : copy.adminForm.submit)}
+          </button>
+        </div>
+      </div>
+
+      <div className="admin-game-workspace">
+        <aside className="admin-game-preview-pane">
+          <div className="admin-game-cover-preview">
+            {adminGameForm.coverImage.trim() ? (
+              <img src={adminGameForm.coverImage.trim()} alt={adminGameForm.titleZh || adminGameForm.titleEn || copy.adminForm.coverImage} />
+            ) : (
+              <span>{copy.adminForm.coverImage}</span>
+            )}
+          </div>
+          <div className="admin-game-preview-copy">
+            <strong>{adminGameForm.titleZh.trim() || adminGameForm.titleEn.trim() || copy.adminForm.titleZh}</strong>
+            <span>{adminGameForm.categories.trim() || copy.adminForm.categories}</span>
+          </div>
+          <div className="admin-game-preview-meta">
+            <span>{adminGameForm.rating.trim() || copy.adminForm.rating}</span>
+            <span>{adminGameForm.regionCode.trim() || copy.adminForm.regionCode}</span>
+          </div>
+        </aside>
+
+        <div className="admin-game-fields">
+          {adminGameMode === 'edit' ? (
+            <label className="admin-game-edit-picker">
+              <span>{copy.adminForm.selectGame}</span>
+              <input
+                list="admin-game-edit-options"
+                value={editingGameQuery}
+                disabled={gameLibraryLoading}
+                placeholder={gameLibraryLoading ? '...' : copy.adminForm.selectGamePlaceholder}
+                onChange={(event) => handleEditingGameQueryChange(event.target.value)}
+              />
+              <datalist id="admin-game-edit-options">
+                {sortedGameLibrary.map((game) => (
+                  <option key={game.id} value={game.title} />
+                ))}
+              </datalist>
+            </label>
+          ) : null}
+
+          <div className="admin-game-form-grid">
+            {renderAdminField('titleZh', copy.adminForm.titleZh, {
+              required: true,
+              placeholder: '塞尔达传说',
+              onBlur: handleAdminTitleBlur,
+            })}
+            {renderAdminField('titleEn', copy.adminForm.titleEn, {
+              placeholder: 'The Legend of Zelda',
+              onBlur: handleAdminTitleBlur,
+            })}
+            {duplicateGame ? (
+              <div className="admin-game-duplicate-note">
+                {copy.adminForm.duplicateExists.replace('{title}', duplicateGame.title)}
+              </div>
+            ) : null}
+            {renderAdminField('descriptionZh', copy.adminForm.descriptionZh, { required: true, multiline: true })}
+            {renderAdminField('descriptionEn', copy.adminForm.descriptionEn, { multiline: true })}
+          </div>
+
+          <div className="admin-game-form-grid is-compact">
+            {renderAdminField('coverImage', copy.adminForm.coverImage, { required: true, placeholder: 'https://...', className: 'is-wide' })}
+            {renderAdminField('rating', copy.adminForm.rating, { required: true, type: 'number', placeholder: '9.5' })}
+            {renderAdminField('categories', copy.adminForm.categories, { required: true, placeholder: 'ACTION, RPG' })}
+            {renderAdminField('regionCode', copy.adminForm.regionCode, { placeholder: 'JP' })}
+            {renderAdminField('releaseDate', copy.adminForm.releaseDate, {
+              placeholder: copy.adminForm.releaseDatePlaceholder,
+            })}
+            {renderAdminField('cinematicTrailer', copy.adminForm.cinematicTrailer, { placeholder: 'https://...' })}
+            {renderAdminField('downloadLink', copy.adminForm.downloadLink, { placeholder: 'https://...' })}
+          </div>
+        </div>
       </div>
 
       <p className="admin-game-helper">{copy.adminForm.helper}</p>
       {adminMessage ? <p className="admin-game-message">{adminMessage}</p> : null}
       {adminError ? <p className="admin-game-error">{adminError}</p> : null}
-
-      <div className="admin-game-actions">
-        <button type="submit" className="settings-link-btn admin-game-submit" disabled={adminSaving}>
-          {adminSaving ? copy.adminForm.saving : copy.adminForm.submit}
-        </button>
-      </div>
     </form>
   );
 
