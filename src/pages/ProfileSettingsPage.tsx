@@ -4,9 +4,7 @@ import { useLocale } from '../i18n/LocaleProvider';
 import {
   createGameApi,
   getCurrentUserApi,
-  getFavoritesApi,
   getGamesApi,
-  getRecentlyViewedApi,
   updateGameApi,
   updateAvatarApi,
   type CreateGamePayload,
@@ -137,11 +135,8 @@ const ProfileSettingsPage = () => {
   const navigate = useNavigate();
   const { locale, setLocale, t } = useLocale();
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
-  const [favoriteGames, setFavoriteGames] = useState<Game[]>([]);
-  const [recentGames, setRecentGames] = useState<Game[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeSection, setActiveSection] = useState<ProfileSection>('general');
+  const [activeSection, setActiveSection] = useState<ProfileSection>('account');
   const [adminGameForm, setAdminGameForm] = useState<AdminGameForm>(emptyAdminGameForm);
   const [adminSaving, setAdminSaving] = useState(false);
   const [adminMessage, setAdminMessage] = useState('');
@@ -307,14 +302,9 @@ const ProfileSettingsPage = () => {
 
     const fetchProfileData = async () => {
       try {
-        setLoading(true);
         setError('');
 
-        const [userResponse, favoritesResponse, recentResponse] = await Promise.all([
-          getCurrentUserApi(),
-          getFavoritesApi(locale),
-          getRecentlyViewedApi(locale),
-        ]);
+        const userResponse = await getCurrentUserApi();
 
         if (cancelled) {
           return;
@@ -323,21 +313,9 @@ const ProfileSettingsPage = () => {
         if (userResponse.code === 200) {
           setCurrentUser(userResponse.data);
         }
-
-        if (favoritesResponse.code === 200) {
-          setFavoriteGames(favoritesResponse.data || []);
-        }
-
-        if (recentResponse.code === 200) {
-          setRecentGames(recentResponse.data || []);
-        }
       } catch (err: any) {
         if (!cancelled) {
           setError(err.message || t('loadingContent'));
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
         }
       }
     };
@@ -351,24 +329,9 @@ const ProfileSettingsPage = () => {
 
   useEffect(() => {
     if (activeSection === 'admin' && currentUser && !currentUser.admin) {
-      setActiveSection('general');
+      setActiveSection('account');
     }
   }, [activeSection, currentUser]);
-
-  const favoriteCategories = useMemo(() => {
-    const counts = new Map<string, number>();
-
-    favoriteGames.forEach((game) => {
-      (game.categoryLabels || []).forEach((label) => {
-        counts.set(label, (counts.get(label) || 0) + 1);
-      });
-    });
-
-    return Array.from(counts.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([label]) => label);
-  }, [favoriteGames]);
 
   const sortedGameLibrary = useMemo(
     () => [...(gameLibrary || [])].sort((left, right) => left.title.localeCompare(right.title, locale)),
@@ -565,11 +528,7 @@ const ProfileSettingsPage = () => {
   };
 
   const sectionEntries: Array<{ key: ProfileSection; title: string }> = [
-    { key: 'general', title: copy.sections.general.title },
     { key: 'account', title: copy.sections.account.title },
-    { key: 'language', title: copy.sections.language.title },
-    { key: 'library', title: copy.sections.library.title },
-    { key: 'session', title: copy.sections.session.title },
     ...(isAdmin ? [{ key: 'admin' as ProfileSection, title: copy.sections.admin.title }] : []),
   ];
 
@@ -623,32 +582,11 @@ const ProfileSettingsPage = () => {
     </div>
   );
 
-  const renderGeneralSection = () => (
-    <div className="settings-card">
-      {renderSettingRow(copy.rows.username.label, copy.rows.username.desc, username)}
-      {renderSettingRow(copy.rows.role.label, copy.rows.role.desc, isAdmin ? copy.adminBadge : copy.regularUser)}
-      {renderSettingRow(copy.rows.language.label, copy.rows.language.desc, locale === 'zh-CN' ? '中文' : 'English')}
-      {renderSettingRow(copy.rows.favorites.label, copy.rows.favorites.desc, loading ? '...' : favoriteGames.length)}
-      {renderSettingRow(copy.rows.recent.label, copy.rows.recent.desc, loading ? '...' : recentGames.length)}
-      {renderSettingRow(
-        copy.rows.preference.label,
-        copy.rows.preference.desc,
-        favoriteCategories.length > 0 ? favoriteCategories.join(' / ') : copy.noPreference
-      )}
-    </div>
-  );
-
   const renderAccountSection = () => (
     <div className="settings-card">
       {renderSettingRow(copy.rows.avatar.label, copy.rows.avatar.desc, null, renderAvatarControl())}
       {renderSettingRow(copy.rows.username.label, copy.rows.username.desc, username)}
       {renderSettingRow(copy.rows.role.label, copy.rows.role.desc, isAdmin ? copy.adminBadge : copy.regularUser)}
-      {renderSettingRow(copy.rows.status.label, copy.rows.status.desc, copy.statusHealthy)}
-    </div>
-  );
-
-  const renderLanguageSection = () => (
-    <div className="settings-card">
       {renderSettingRow(
         copy.rows.language.label,
         copy.rows.language.desc,
@@ -670,31 +608,13 @@ const ProfileSettingsPage = () => {
           </button>
         </div>
       )}
-    </div>
-  );
-
-  const renderLibrarySection = () => (
-    <div className="settings-card">
       {renderSettingRow(
-        copy.rows.favorites.label,
-        copy.rows.favorites.desc,
-        loading ? '...' : favoriteGames.length,
-        <button type="button" className="settings-link-btn" onClick={() => navigate('/', { state: { view: 'favorites' } })}>
-          {copy.open}
+        copy.rows.logout.label,
+        copy.rows.logout.desc,
+        copy.statusActive,
+        <button type="button" className="settings-link-btn settings-link-btn-danger" onClick={handleLogout}>
+          {copy.logout}
         </button>
-      )}
-      {renderSettingRow(
-        copy.rows.recent.label,
-        copy.rows.recent.desc,
-        loading ? '...' : recentGames.length,
-        <button type="button" className="settings-link-btn" onClick={() => navigate('/', { state: { view: 'recent' } })}>
-          {copy.open}
-        </button>
-      )}
-      {renderSettingRow(
-        copy.rows.preference.label,
-        copy.rows.preference.desc,
-        favoriteCategories.length > 0 ? favoriteCategories.join(' / ') : copy.noPreference
       )}
     </div>
   );
@@ -840,43 +760,6 @@ const ProfileSettingsPage = () => {
     </form>
   );
 
-  const renderSessionSection = () => (
-    <div className="settings-card">
-      {renderSettingRow(
-        copy.rows.backHome.label,
-        copy.rows.backHome.desc,
-        '',
-        <button type="button" className="settings-link-btn" onClick={() => navigate('/')}>
-          {copy.open}
-        </button>
-      )}
-      {renderSettingRow(
-        copy.rows.favoritesEntry.label,
-        copy.rows.favoritesEntry.desc,
-        '',
-        <button type="button" className="settings-link-btn" onClick={() => navigate('/', { state: { view: 'favorites' } })}>
-          {copy.open}
-        </button>
-      )}
-      {renderSettingRow(
-        copy.rows.recentEntry.label,
-        copy.rows.recentEntry.desc,
-        '',
-        <button type="button" className="settings-link-btn" onClick={() => navigate('/', { state: { view: 'recent' } })}>
-          {copy.open}
-        </button>
-      )}
-      {renderSettingRow(
-        copy.rows.logout.label,
-        copy.rows.logout.desc,
-        copy.statusActive,
-        <button type="button" className="settings-link-btn settings-link-btn-danger" onClick={handleLogout}>
-          {copy.logout}
-        </button>
-      )}
-    </div>
-  );
-
   const renderSectionContent = () => {
     if (error) {
       return (
@@ -891,17 +774,10 @@ const ProfileSettingsPage = () => {
     switch (activeSection) {
       case 'account':
         return renderAccountSection();
-      case 'language':
-        return renderLanguageSection();
-      case 'library':
-        return renderLibrarySection();
       case 'admin':
         return renderAdminSection();
-      case 'session':
-        return renderSessionSection();
-      case 'general':
       default:
-        return renderGeneralSection();
+        return renderAccountSection();
     }
   };
 
