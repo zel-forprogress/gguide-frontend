@@ -3,18 +3,33 @@ import { useNavigate } from 'react-router-dom';
 import { useLocale } from '../i18n/LocaleProvider';
 import {
   createGameApi,
+  getAiSettingsApi,
   getCurrentUserApi,
   getGamesApi,
   updateGameApi,
+  updateAiSettingsApi,
   updateAvatarApi,
+  type AiSettings,
   type CreateGamePayload,
   type CurrentUser,
   type Game,
 } from '../services/api';
 import { clearStoredToken, subscribeAuthExpired } from '../utils/auth';
 
-type ProfileSection = 'general' | 'account' | 'language' | 'library' | 'session' | 'admin';
+type ProfileSection = 'general' | 'account' | 'language' | 'library' | 'session' | 'ai' | 'admin';
 type AdminGameMode = 'create' | 'edit';
+
+type AiSettingsForm = {
+  apiKey: string;
+  baseUrl: string;
+  model: string;
+};
+
+const emptyAiSettingsForm: AiSettingsForm = {
+  apiKey: '',
+  baseUrl: '',
+  model: '',
+};
 
 type AdminGameForm = {
   titleZh: string;
@@ -150,6 +165,12 @@ const ProfileSettingsPage = () => {
   const [avatarSaving, setAvatarSaving] = useState(false);
   const [avatarMessage, setAvatarMessage] = useState('');
   const [avatarError, setAvatarError] = useState('');
+  const [aiSettings, setAiSettings] = useState<AiSettings | null>(null);
+  const [aiSettingsForm, setAiSettingsForm] = useState<AiSettingsForm>(emptyAiSettingsForm);
+  const [aiSettingsLoading, setAiSettingsLoading] = useState(false);
+  const [aiSettingsSaving, setAiSettingsSaving] = useState(false);
+  const [aiSettingsMessage, setAiSettingsMessage] = useState('');
+  const [aiSettingsError, setAiSettingsError] = useState('');
 
   const token = localStorage.getItem('token');
   const tokenUsername = useMemo(() => decodeUsernameFromToken(token), [token]);
@@ -167,6 +188,7 @@ const ProfileSettingsPage = () => {
             sections: {
               general: { title: '常规', description: '查看常用设置和当前账号概况。' },
               account: { title: '账号', description: '管理你的账号基础信息和登录状态。' },
+              ai: { title: 'AI 助手管理', description: '配置你的模型服务，让 G-Guide 助手使用自己的 API。' },
               language: { title: '语言', description: '调整界面语言与显示方式。' },
               library: { title: '游戏资料', description: '查看收藏、最近查看和兴趣偏好。' },
               session: { title: '会话', description: '回到应用首页，或退出当前账号。' },
@@ -222,6 +244,26 @@ const ProfileSettingsPage = () => {
               updateSuccess: '游戏信息已更新。',
               duplicateExists: '“{title}” 已存在于游戏库中，建议直接使用已有条目，无需继续填写新增表单。',
             },
+            aiForm: {
+              kicker: '个人配置',
+              statusReady: '已配置',
+              statusMissing: '未配置',
+              apiKey: 'API Key',
+              apiKeyPlaceholder: '填写新的 key；留空会保留已保存的 key',
+              baseUrl: 'Base URL',
+              baseUrlPlaceholder: 'https://api.deepseek.com 或 https://api.openai.com/v1',
+              model: '模型名称',
+              modelPlaceholder: 'deepseek-chat / gpt-4o-mini 等',
+              helper: 'Base URL 建议保留：这样用户可以接入 DeepSeek、OpenAI 兼容网关或本地模型服务。也可以粘贴完整 /chat/completions 地址。',
+              savedKey: '当前 Key',
+              inherited: '使用服务器默认值',
+              save: '保存配置',
+              saving: '正在保存...',
+              clear: '清除个人配置',
+              saved: 'AI 助手配置已保存。',
+              cleared: '个人 AI 配置已清除。',
+              loading: '正在读取配置...',
+            },
           }
         : {
             signedInAs: 'Signed in as',
@@ -230,6 +272,7 @@ const ProfileSettingsPage = () => {
             sections: {
               general: { title: 'General', description: 'Review the most common settings and your current account summary.' },
               account: { title: 'Account', description: 'Manage your basic account information and sign-in state.' },
+              ai: { title: 'AI Assistant', description: 'Configure your own model service for the G-Guide assistant.' },
               language: { title: 'Language', description: 'Adjust interface language and display behavior.' },
               library: { title: 'Game Data', description: 'Review favorites, recent activity, and interest signals.' },
               session: { title: 'Session', description: 'Return to the app home or sign out of the current account.' },
@@ -285,6 +328,26 @@ const ProfileSettingsPage = () => {
               updateSuccess: 'Game details updated.',
               duplicateExists: '"{title}" already exists in the game library. Use the existing entry instead of filling out a new one.',
             },
+            aiForm: {
+              kicker: 'Personal setup',
+              statusReady: 'Configured',
+              statusMissing: 'Not configured',
+              apiKey: 'API Key',
+              apiKeyPlaceholder: 'Enter a new key; leave blank to keep the saved key',
+              baseUrl: 'Base URL',
+              baseUrlPlaceholder: 'https://api.deepseek.com or https://api.openai.com/v1',
+              model: 'Model',
+              modelPlaceholder: 'deepseek-chat / gpt-4o-mini, etc.',
+              helper: 'Keep Base URL available so users can connect DeepSeek, OpenAI-compatible gateways, or local model services. A full /chat/completions endpoint also works.',
+              savedKey: 'Saved key',
+              inherited: 'Using server default',
+              save: 'Save settings',
+              saving: 'Saving...',
+              clear: 'Clear personal settings',
+              saved: 'AI assistant settings saved.',
+              cleared: 'Personal AI settings cleared.',
+              loading: 'Loading settings...',
+            },
           },
     [locale]
   );
@@ -332,6 +395,50 @@ const ProfileSettingsPage = () => {
       setActiveSection('account');
     }
   }, [activeSection, currentUser]);
+
+  useEffect(() => {
+    if (activeSection !== 'ai' || aiSettings) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadAiSettings = async () => {
+      try {
+        setAiSettingsLoading(true);
+        setAiSettingsError('');
+        const response = await getAiSettingsApi();
+
+        if (cancelled) {
+          return;
+        }
+
+        if (response.code !== 200) {
+          throw new Error(response.message);
+        }
+
+        const settings = response.data;
+        setAiSettings(settings);
+        setAiSettingsForm({
+          apiKey: '',
+          baseUrl: settings.baseUrl || '',
+          model: settings.model || '',
+        });
+      } catch (err: any) {
+        if (!cancelled) {
+          setAiSettingsError(err.message || copy.aiForm.loading);
+        }
+      } finally {
+        setAiSettingsLoading(false);
+      }
+    };
+
+    void loadAiSettings();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSection, aiSettings, copy.aiForm.loading]);
 
   const sortedGameLibrary = useMemo(
     () => [...(gameLibrary || [])].sort((left, right) => left.title.localeCompare(right.title, locale)),
@@ -527,8 +634,74 @@ const ProfileSettingsPage = () => {
     }
   };
 
+  const handleAiFieldChange = (field: keyof AiSettingsForm, value: string) => {
+    setAiSettingsForm((current) => ({ ...current, [field]: value }));
+    setAiSettingsMessage('');
+    setAiSettingsError('');
+  };
+
+  const handleSaveAiSettings = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setAiSettingsSaving(true);
+    setAiSettingsMessage('');
+    setAiSettingsError('');
+
+    try {
+      const payload = {
+        apiKey: aiSettingsForm.apiKey.trim() || undefined,
+        baseUrl: aiSettingsForm.baseUrl.trim(),
+        model: aiSettingsForm.model.trim(),
+      };
+      const response = await updateAiSettingsApi(payload);
+      if (response.code !== 200) {
+        throw new Error(response.message);
+      }
+      setAiSettings(response.data);
+      setAiSettingsForm({
+        apiKey: '',
+        baseUrl: response.data.baseUrl || '',
+        model: response.data.model || '',
+      });
+      setAiSettingsMessage(copy.aiForm.saved);
+    } catch (err: any) {
+      setAiSettingsError(err.message || 'Failed to save AI settings');
+    } finally {
+      setAiSettingsSaving(false);
+    }
+  };
+
+  const handleClearAiSettings = async () => {
+    setAiSettingsSaving(true);
+    setAiSettingsMessage('');
+    setAiSettingsError('');
+
+    try {
+      const response = await updateAiSettingsApi({
+        apiKey: '',
+        baseUrl: '',
+        model: '',
+        clearApiKey: true,
+      });
+      if (response.code !== 200) {
+        throw new Error(response.message);
+      }
+      setAiSettings(response.data);
+      setAiSettingsForm({
+        apiKey: '',
+        baseUrl: response.data.baseUrl || '',
+        model: response.data.model || '',
+      });
+      setAiSettingsMessage(copy.aiForm.cleared);
+    } catch (err: any) {
+      setAiSettingsError(err.message || 'Failed to clear AI settings');
+    } finally {
+      setAiSettingsSaving(false);
+    }
+  };
+
   const sectionEntries: Array<{ key: ProfileSection; title: string }> = [
     { key: 'account', title: copy.sections.account.title },
+    { key: 'ai', title: copy.sections.ai.title },
     ...(isAdmin ? [{ key: 'admin' as ProfileSection, title: copy.sections.admin.title }] : []),
   ];
 
@@ -617,6 +790,82 @@ const ProfileSettingsPage = () => {
         </button>
       )}
     </div>
+  );
+
+  const renderAiSettingsField = (
+    field: keyof AiSettingsForm,
+    label: string,
+    placeholder: string,
+    type = 'text'
+  ) => (
+    <label className="ai-settings-field">
+      <span>{label}</span>
+      <input
+        type={type}
+        value={aiSettingsForm[field]}
+        placeholder={placeholder}
+        autoComplete={field === 'apiKey' ? 'off' : undefined}
+        onChange={(event) => handleAiFieldChange(field, event.target.value)}
+      />
+    </label>
+  );
+
+  const renderAiSection = () => (
+    <form className="settings-card ai-settings-card" onSubmit={handleSaveAiSettings}>
+      <div className="ai-settings-head">
+        <div>
+          <span className="ai-settings-kicker">{copy.aiForm.kicker}</span>
+          <h2>{copy.sections.ai.title}</h2>
+          <p>{copy.sections.ai.description}</p>
+        </div>
+        <div className={`ai-settings-status${aiSettings?.configured ? ' is-ready' : ''}`}>
+          {aiSettings?.configured ? copy.aiForm.statusReady : copy.aiForm.statusMissing}
+        </div>
+      </div>
+
+      {aiSettingsLoading ? (
+        <div className="ai-settings-loading">{copy.aiForm.loading}</div>
+      ) : (
+        <>
+          <div className="ai-settings-grid">
+            <div className="ai-settings-summary">
+              <span>{copy.aiForm.savedKey}</span>
+              <strong>{aiSettings?.apiKeyPreview || copy.aiForm.statusMissing}</strong>
+              <small>
+                {aiSettings?.usingDefaultBaseUrl || aiSettings?.usingDefaultModel
+                  ? copy.aiForm.inherited
+                  : aiSettings?.model || copy.aiForm.model}
+              </small>
+            </div>
+
+            <div className="ai-settings-fields">
+              {renderAiSettingsField('apiKey', copy.aiForm.apiKey, copy.aiForm.apiKeyPlaceholder, 'password')}
+              {renderAiSettingsField('baseUrl', copy.aiForm.baseUrl, copy.aiForm.baseUrlPlaceholder)}
+              {renderAiSettingsField('model', copy.aiForm.model, copy.aiForm.modelPlaceholder)}
+            </div>
+          </div>
+
+          <p className="ai-settings-helper">{copy.aiForm.helper}</p>
+
+          <div className="ai-settings-actions">
+            <button type="submit" className="settings-link-btn ai-settings-save" disabled={aiSettingsSaving}>
+              {aiSettingsSaving ? copy.aiForm.saving : copy.aiForm.save}
+            </button>
+            <button
+              type="button"
+              className="settings-link-btn ai-settings-clear"
+              disabled={aiSettingsSaving}
+              onClick={() => void handleClearAiSettings()}
+            >
+              {copy.aiForm.clear}
+            </button>
+          </div>
+        </>
+      )}
+
+      {aiSettingsMessage ? <p className="ai-settings-message">{aiSettingsMessage}</p> : null}
+      {aiSettingsError ? <p className="ai-settings-error">{aiSettingsError}</p> : null}
+    </form>
   );
 
   const renderAdminField = (
@@ -774,6 +1023,8 @@ const ProfileSettingsPage = () => {
     switch (activeSection) {
       case 'account':
         return renderAccountSection();
+      case 'ai':
+        return renderAiSection();
       case 'admin':
         return renderAdminSection();
       default:

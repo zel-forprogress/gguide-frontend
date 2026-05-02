@@ -124,6 +124,22 @@ export interface AiChatResponse {
   updatedAt: string;
 }
 
+export interface AiSettings {
+  configured: boolean;
+  apiKeyPreview: string;
+  baseUrl: string;
+  model: string;
+  usingDefaultBaseUrl: boolean;
+  usingDefaultModel: boolean;
+}
+
+export interface AiSettingsPayload {
+  apiKey?: string;
+  baseUrl?: string;
+  model?: string;
+  clearApiKey?: boolean;
+}
+
 export const loginApi = async (data: { username: string; password: string }) => {
   try {
     const response = await api.post<ResultVO<{ token: string }>>('/api/auth/login', data);
@@ -328,6 +344,24 @@ export const getAiConversationApi = async (conversationId: string) => {
     return response.data;
   } catch (error: any) {
     return throwAppError(error, 'Failed to load AI chat conversation');
+  }
+};
+
+export const getAiSettingsApi = async () => {
+  try {
+    const response = await api.get<ResultVO<AiSettings>>('/api/ai/settings');
+    return response.data;
+  } catch (error: any) {
+    return throwAppError(error, 'Failed to load AI settings');
+  }
+};
+
+export const updateAiSettingsApi = async (data: AiSettingsPayload) => {
+  try {
+    const response = await api.put<ResultVO<AiSettings>>('/api/ai/settings', data);
+    return response.data;
+  } catch (error: any) {
+    return throwAppError(error, 'Failed to update AI settings');
   }
 };
 
