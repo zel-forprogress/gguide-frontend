@@ -8,6 +8,7 @@ import {
   getGamesApi,
   getRecentlyViewedApi,
   updateGameApi,
+  updateAvatarApi,
   type CreateGamePayload,
   type CurrentUser,
   type Game,
@@ -151,11 +152,15 @@ const ProfileSettingsPage = () => {
   const [editingGameId, setEditingGameId] = useState('');
   const [editingGameQuery, setEditingGameQuery] = useState('');
   const [gameLibraryLoading, setGameLibraryLoading] = useState(false);
+  const [avatarSaving, setAvatarSaving] = useState(false);
+  const [avatarMessage, setAvatarMessage] = useState('');
+  const [avatarError, setAvatarError] = useState('');
 
   const token = localStorage.getItem('token');
   const tokenUsername = useMemo(() => decodeUsernameFromToken(token), [token]);
   const username = currentUser?.username || tokenUsername || 'User';
   const isAdmin = Boolean(currentUser?.admin);
+  const avatarUrl = currentUser?.avatarUrl || '';
 
   const copy = useMemo(
     () =>
@@ -174,6 +179,7 @@ const ProfileSettingsPage = () => {
             },
             rows: {
               username: { label: '用户名', desc: '当前登录账号名称' },
+              avatar: { label: '头像', desc: '上传一张图片作为你的个人头像' },
               role: { label: '账号角色', desc: '用于区分普通用户和管理员' },
               status: { label: '登录状态', desc: '当前会话状态' },
               language: { label: '应用语言', desc: '切换后界面和游戏内容会一起更新' },
@@ -189,6 +195,11 @@ const ProfileSettingsPage = () => {
             statusHealthy: '会话有效',
             regularUser: '普通用户',
             open: '打开',
+            uploadAvatar: '上传头像',
+            uploadingAvatar: '上传中...',
+            avatarUpdated: '头像已更新。',
+            avatarInvalid: '请选择图片文件。',
+            avatarTooLarge: '图片不能超过 1MB。',
             logout: '退出登录',
             adminForm: {
               titleZh: '中文标题',
@@ -231,6 +242,7 @@ const ProfileSettingsPage = () => {
             },
             rows: {
               username: { label: 'Username', desc: 'The name of the account currently signed in' },
+              avatar: { label: 'Avatar', desc: 'Upload an image as your profile avatar' },
               role: { label: 'Account role', desc: 'Used to distinguish regular users from admins' },
               status: { label: 'Session state', desc: 'Current authentication status' },
               language: { label: 'App language', desc: 'Switching updates both interface copy and game content' },
@@ -246,6 +258,11 @@ const ProfileSettingsPage = () => {
             statusHealthy: 'Session active',
             regularUser: 'Regular user',
             open: 'Open',
+            uploadAvatar: 'Upload avatar',
+            uploadingAvatar: 'Uploading...',
+            avatarUpdated: 'Avatar updated.',
+            avatarInvalid: 'Choose an image file.',
+            avatarTooLarge: 'Image must be under 1 MB.',
             logout: 'Log Out',
             adminForm: {
               titleZh: 'Chinese title',
@@ -361,6 +378,45 @@ const ProfileSettingsPage = () => {
   const handleLogout = () => {
     clearStoredToken();
     navigate('/auth', { replace: true });
+  };
+
+  const handleAvatarUpload = async (file: File | undefined) => {
+    setAvatarMessage('');
+    setAvatarError('');
+
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      setAvatarError(copy.avatarInvalid);
+      return;
+    }
+
+    if (file.size > 1024 * 1024) {
+      setAvatarError(copy.avatarTooLarge);
+      return;
+    }
+
+    try {
+      setAvatarSaving(true);
+      const avatarDataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+      const response = await updateAvatarApi(avatarDataUrl);
+      if (response.code !== 200) {
+        throw new Error(response.message);
+      }
+      setCurrentUser(response.data);
+      setAvatarMessage(copy.avatarUpdated);
+    } catch (err: any) {
+      setAvatarError(err.message || copy.avatarInvalid);
+    } finally {
+      setAvatarSaving(false);
+    }
   };
 
   const ensureGameLibrary = async () => {
@@ -529,8 +585,40 @@ const ProfileSettingsPage = () => {
         <span>{description}</span>
       </div>
       <div className="settings-row-meta">
-        <div className="settings-row-value">{value}</div>
+        {value !== null && value !== undefined && value !== '' ? (
+          <div className="settings-row-value">{value}</div>
+        ) : null}
         {action ? <div className="settings-row-action">{action}</div> : null}
+      </div>
+    </div>
+  );
+
+  const renderAvatarPreview = (sizeClass = '') => (
+    avatarUrl ? (
+      <img className={`profile-avatar-image ${sizeClass}`} src={avatarUrl} alt={username} />
+    ) : (
+      <span className={`profile-avatar-fallback ${sizeClass}`}>{username.slice(0, 1).toUpperCase()}</span>
+    )
+  );
+
+  const renderAvatarControl = () => (
+    <div className="profile-avatar-control">
+      {renderAvatarPreview('is-large')}
+      <div className="profile-avatar-actions">
+        <label className={`settings-link-btn profile-avatar-upload${avatarSaving ? ' is-disabled' : ''}`}>
+          {avatarSaving ? copy.uploadingAvatar : copy.uploadAvatar}
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            disabled={avatarSaving}
+            onChange={(event) => {
+              void handleAvatarUpload(event.target.files?.[0]);
+              event.currentTarget.value = '';
+            }}
+          />
+        </label>
+        {avatarMessage ? <span className="profile-avatar-message">{avatarMessage}</span> : null}
+        {avatarError ? <span className="profile-avatar-error">{avatarError}</span> : null}
       </div>
     </div>
   );
@@ -552,6 +640,7 @@ const ProfileSettingsPage = () => {
 
   const renderAccountSection = () => (
     <div className="settings-card">
+      {renderSettingRow(copy.rows.avatar.label, copy.rows.avatar.desc, null, renderAvatarControl())}
       {renderSettingRow(copy.rows.username.label, copy.rows.username.desc, username)}
       {renderSettingRow(copy.rows.role.label, copy.rows.role.desc, isAdmin ? copy.adminBadge : copy.regularUser)}
       {renderSettingRow(copy.rows.status.label, copy.rows.status.desc, copy.statusHealthy)}
@@ -824,7 +913,7 @@ const ProfileSettingsPage = () => {
             {t('backHome')}
           </button>
           <div className={`profile-status-chip${isAdmin ? ' is-admin' : ''}`}>
-            <span className="profile-status-chip-dot" />
+            {renderAvatarPreview('is-chip')}
             {copy.signedInAs} · {username}
             {isAdmin ? <strong>{copy.adminBadge}</strong> : null}
           </div>

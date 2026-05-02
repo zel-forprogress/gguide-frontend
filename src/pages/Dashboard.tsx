@@ -8,12 +8,14 @@ import AiChatBox from '../components/AiChatBox';
 import { useLocale } from '../i18n/LocaleProvider';
 import {
   addFavoriteApi,
+  getCurrentUserApi,
   getAiConversationsApi,
   getFavoritesApi,
   getGamesApi,
   getRecentlyViewedApi,
   removeFavoriteApi,
   type AiConversationSummary,
+  type CurrentUser,
   type Game,
 } from '../services/api';
 import { clearStoredToken, hasStoredToken, subscribeAuthExpired } from '../utils/auth';
@@ -47,6 +49,7 @@ const Dashboard = () => {
   const [activeHubCategory, setActiveHubCategory] = useState<string>(ALL_CATEGORY);
   const [pendingFavoriteIds, setPendingFavoriteIds] = useState<string[]>([]);
   const [isLoggedIn, setIsLoggedIn] = useState(() => hasStoredToken());
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [aiConversations, setAiConversations] = useState<AiConversationSummary[]>([]);
   const [activeAiConversationId, setActiveAiConversationId] = useState<string | null>(null);
   const [aiHistoryLoading, setAiHistoryLoading] = useState(false);
@@ -76,12 +79,39 @@ const Dashboard = () => {
       setFavoriteGames([]);
       setRecentGames([]);
       setPendingFavoriteIds([]);
+      setCurrentUser(null);
       setAiConversations([]);
       setActiveAiConversationId(null);
     });
 
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchCurrentUser = async () => {
+      if (!isLoggedIn) {
+        setCurrentUser(null);
+        return;
+      }
+
+      try {
+        const response = await getCurrentUserApi();
+        if (!cancelled && response.code === 200) {
+          setCurrentUser(response.data);
+        }
+      } catch (err) {
+        console.error('Failed to load current user', err);
+      }
+    };
+
+    void fetchCurrentUser();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoggedIn]);
 
   const loadAiConversations = async () => {
     if (!isLoggedIn) {
@@ -433,6 +463,7 @@ const Dashboard = () => {
     setIsLoggedIn(false);
     setFavoriteGames([]);
     setRecentGames([]);
+    setCurrentUser(null);
     setAiConversations([]);
     setActiveAiConversationId(null);
     setActiveView('home');
@@ -1037,7 +1068,13 @@ const Dashboard = () => {
             {isLoggedIn ? (
               <div className="user-profile">
                 <div className="avatar-wrapper">
-                  <div className="avatar"></div>
+                  {currentUser?.avatarUrl ? (
+                    <img className="avatar" src={currentUser.avatarUrl} alt={currentUser.username} />
+                  ) : (
+                    <div className="avatar avatar-fallback">
+                      {(currentUser?.username || '').slice(0, 1).toUpperCase()}
+                    </div>
+                  )}
                   <div className="user-dropdown">
                     <div className="dropdown-item" onClick={() => navigate('/profile')}>
                       {t('profileSettings')}

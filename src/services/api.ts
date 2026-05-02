@@ -81,6 +81,7 @@ export interface Game {
 export interface CurrentUser {
   username: string;
   admin: boolean;
+  avatarUrl: string;
 }
 
 export interface CreateGamePayload {
@@ -150,6 +151,15 @@ export const getCurrentUserApi = async () => {
     return response.data;
   } catch (error: any) {
     return throwAppError(error, 'Failed to load current user');
+  }
+};
+
+export const updateAvatarApi = async (avatarUrl: string) => {
+  try {
+    const response = await api.put<ResultVO<CurrentUser>>('/api/auth/avatar', { avatarUrl });
+    return response.data;
+  } catch (error: any) {
+    return throwAppError(error, 'Failed to update avatar');
   }
 };
 
