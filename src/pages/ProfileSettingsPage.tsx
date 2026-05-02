@@ -254,7 +254,7 @@ const ProfileSettingsPage = () => {
               baseUrlPlaceholder: 'https://api.deepseek.com 或 https://api.openai.com/v1',
               model: '模型名称',
               modelPlaceholder: 'deepseek-chat / gpt-4o-mini 等',
-              helper: 'Base URL 建议保留：这样用户可以接入 DeepSeek、OpenAI 兼容网关或本地模型服务。也可以粘贴完整 /chat/completions 地址。',
+              helper: '请根据你要调用的模型，修改上面的配置。当前显示的 Base URL 和模型名称使用的是服务器默认值。',
               savedKey: '当前 Key',
               inherited: '使用服务器默认值',
               save: '保存配置',

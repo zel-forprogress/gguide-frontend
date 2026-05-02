@@ -237,111 +237,69 @@ const GameDetailPage = () => {
         </div>
 
         <section className="detail-hero">
-          <div className="detail-cover-frame">
-            {game.coverImage ? (
-              <img className="detail-cover-image" src={game.coverImage} alt={game.title} />
-            ) : (
-              <div className="detail-cover-placeholder">{t('appName')}</div>
-            )}
-          </div>
-
-          <div className="detail-copy">
-            <span className="detail-kicker">{getCategoryText(game)}</span>
-            <h1 className="detail-title">{game.title}</h1>
-            <p className="detail-summary">{game.description || t('noDescription')}</p>
-
-            <div className="detail-badges">
-              <span className="detail-badge detail-badge-accent">{formatRating(game.rating)}</span>
-              <span className="detail-badge">{formatReleaseDate(game.releaseDate)}</span>
+          <div className="detail-hero-card">
+            <div className="detail-cover-frame">
+              {game.coverImage ? (
+                <img className="detail-cover-image" src={game.coverImage} alt={game.title} />
+              ) : (
+                <div className="detail-cover-placeholder">{t('appName')}</div>
+              )}
             </div>
 
-            <div className="detail-meta-grid">
-              <article className="detail-meta-card">
-                <span>{t('category')}</span>
-                <strong>{getCategoryText(game)}</strong>
-              </article>
-              <article className="detail-meta-card">
-                <span>{t('region')}</span>
-                <strong>{getRegionText(game)}</strong>
-              </article>
-              <article className="detail-meta-card">
-                <span>{t('releaseDate')}</span>
-                <strong>{formatReleaseDate(game.releaseDate)}</strong>
-              </article>
-              <article className="detail-meta-card">
-                <span>{t('overallRating')}</span>
-                <strong>{formatRating(game.rating)}</strong>
-              </article>
-            </div>
+            <div className="detail-copy">
+              <span className="detail-kicker">{getCategoryText(game)}</span>
+              <h1 className="detail-title">{game.title}</h1>
+              <p className="detail-summary">{game.description || t('noDescription')}</p>
 
-            <div className="detail-actions">
-              <FavoriteButton
-                active={isFavorite}
-                loading={favoriteLoading}
-                onClick={() => void handleToggleFavorite()}
-              />
-              {game.downloadLink ? (
-                <a
-                  className="detail-primary-btn"
-                  href={game.downloadLink}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {t('downloadNow')}
-                </a>
+              <div className="detail-badges">
+                <span className="detail-badge detail-badge-accent">{formatRating(game.rating)}</span>
+                <span className="detail-badge">{formatReleaseDate(game.releaseDate)}</span>
+                <span className="detail-badge">{getRegionText(game)}</span>
+              </div>
+
+              <div className="detail-actions">
+                <FavoriteButton
+                  active={isFavorite}
+                  loading={favoriteLoading}
+                  onClick={() => void handleToggleFavorite()}
+                />
+                {game.downloadLink ? (
+                  <a
+                    className="detail-primary-btn"
+                    href={game.downloadLink}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {t('downloadNow')}
+                  </a>
+                ) : null}
+                {game.cinematicTrailer ? (
+                  <a
+                    className="detail-secondary-btn"
+                    href={game.cinematicTrailer}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {t('watchTrailer')}
+                  </a>
+                ) : null}
+                <button className="detail-secondary-btn" onClick={handleBackToDashboard}>
+                  {t('backToList')}
+                </button>
+              </div>
+
+              {sessionNotice ? (
+                <p className="detail-login-tip">{sessionNotice}</p>
+              ) : !isLoggedIn ? (
+                <p className="detail-login-tip">{t('guestDetailTip')}</p>
               ) : null}
-              {game.cinematicTrailer ? (
-                <a
-                  className="detail-secondary-btn"
-                  href={game.cinematicTrailer}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {t('watchTrailer')}
-                </a>
-              ) : null}
-              <button className="detail-secondary-btn" onClick={handleBackToDashboard}>
-                {t('backToList')}
-              </button>
             </div>
-
-            {sessionNotice ? (
-              <p className="detail-login-tip">{sessionNotice}</p>
-            ) : !isLoggedIn ? (
-              <p className="detail-login-tip">{t('guestDetailTip')}</p>
-            ) : null}
           </div>
         </section>
 
-        <section className="detail-content-grid">
-          <article className="detail-panel">
-            <h2>{t('gameIntroduction')}</h2>
-            <p>{game.description || t('noDescription')}</p>
-          </article>
-
-          <aside className="detail-panel detail-panel-side">
-            <h2>{t('quickFacts')}</h2>
-            <ul className="detail-facts">
-              <li>
-                {t('category')}: {getCategoryText(game)}
-              </li>
-              <li>
-                {t('region')}: {getRegionText(game)}
-              </li>
-              <li>
-                {t('overallRating')}: {formatRating(game.rating)}
-              </li>
-              <li>
-                {t('releaseDate')}: {formatReleaseDate(game.releaseDate)}
-              </li>
-              <li>
-                {t('watchTrailer')}: {game.cinematicTrailer ? t('trailerAvailable') : t('trailerUnavailable')}
-              </li>
-              <li>
-                {t('downloadNow')}: {game.downloadLink ? t('downloadAvailable') : t('downloadUnavailable')}
-              </li>
-            </ul>
-          </aside>
+        <section className="detail-panel detail-story-panel">
+          <h2>{t('gameIntroduction')}</h2>
+          <p>{game.description || t('noDescription')}</p>
         </section>
       </div>
     </div>
