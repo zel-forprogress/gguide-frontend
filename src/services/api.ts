@@ -98,6 +98,20 @@ export interface CreateGamePayload {
   downloadLink?: string;
 }
 
+export interface GameComment {
+  id: string;
+  gameId: string;
+  username: string;
+  avatarUrl?: string;
+  content: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CreateGameCommentPayload {
+  content: string;
+}
+
 export interface AiMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -229,6 +243,46 @@ export const getGameDetailApi = async (id: string, locale?: AppLocale) => {
     return response.data;
   } catch (error: any) {
     return throwAppError(error, 'Failed to load game detail');
+  }
+};
+
+export const getGameCommentsApi = async (gameId: string) => {
+  try {
+    const response = await api.get<ResultVO<GameComment[]>>(`/api/games/${gameId}/comments`);
+    return response.data;
+  } catch (error: any) {
+    return throwAppError(error, 'Failed to load game comments');
+  }
+};
+
+export const createGameCommentApi = async (gameId: string, data: CreateGameCommentPayload) => {
+  try {
+    const response = await api.post<ResultVO<GameComment>>(`/api/games/${gameId}/comments`, data);
+    return response.data;
+  } catch (error: any) {
+    return throwAppError(error, 'Failed to post game comment');
+  }
+};
+
+export const updateGameCommentApi = async (
+  gameId: string,
+  commentId: string,
+  data: CreateGameCommentPayload
+) => {
+  try {
+    const response = await api.put<ResultVO<GameComment>>(`/api/games/${gameId}/comments/${commentId}`, data);
+    return response.data;
+  } catch (error: any) {
+    return throwAppError(error, 'Failed to update game comment');
+  }
+};
+
+export const deleteGameCommentApi = async (gameId: string, commentId: string) => {
+  try {
+    const response = await api.delete<ResultVO<string>>(`/api/games/${gameId}/comments/${commentId}`);
+    return response.data;
+  } catch (error: any) {
+    return throwAppError(error, 'Failed to delete game comment');
   }
 };
 

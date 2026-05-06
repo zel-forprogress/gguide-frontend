@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Autoplay, Pagination } from 'swiper/modules';
 import FavoriteButton from '../components/FavoriteButton';
-import LanguageSwitcher from '../components/LanguageSwitcher';
 import AiChatBox from '../components/AiChatBox';
 import { useLocale } from '../i18n/LocaleProvider';
 import {
@@ -1063,8 +1062,6 @@ const Dashboard = () => {
           </div>
 
           <div className="top-header-actions">
-            <LanguageSwitcher />
-
             {isLoggedIn ? (
               <div className="user-profile">
                 <div className="avatar-wrapper">

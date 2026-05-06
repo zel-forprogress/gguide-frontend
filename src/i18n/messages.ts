@@ -159,7 +159,31 @@ export type MessageKey =
   | 'profileRecentCount'
   | 'profileTopCategory'
   | 'profileQuickActionsTitle'
-  | 'profileQuickActionsDesc';
+  | 'profileQuickActionsDesc'
+  | 'gameComments'
+  | 'gameCommentsDesc'
+  | 'gameCommentsEmptyTitle'
+  | 'gameCommentsEmptyDesc'
+  | 'commentPlaceholderTitle'
+  | 'commentPlaceholderDesc'
+  | 'commentPlaceholder'
+  | 'commentSubmit'
+  | 'commentSubmitting'
+  | 'commentLoginRequired'
+  | 'commentLoginDesc'
+  | 'commentLoginAction'
+  | 'commentLoading'
+  | 'commentLoadFailed'
+  | 'commentSubmitFailed'
+  | 'commentEmpty'
+  | 'commentEdit'
+  | 'commentDelete'
+  | 'commentSave'
+  | 'commentCancel'
+  | 'commentUpdating'
+  | 'commentDeleteConfirm'
+  | 'commentUpdateFailed'
+  | 'commentDeleteFailed';
 
 type Messages = Record<string, string>;
 
@@ -298,6 +322,30 @@ export const messages: Record<AppLocale, Messages> = {
     profileTopCategory: '偏好分类',
     profileQuickActionsTitle: '快捷操作',
     profileQuickActionsDesc: '从这里可以快速回到你最常用的页面。',
+    gameComments: '评论',
+    gameCommentsDesc: '留下你的想法，或者看看别人对这款游戏的感受。',
+    gameCommentsEmptyTitle: '还没有评论',
+    gameCommentsEmptyDesc: '你可以成为第一个留言的人。',
+    commentPlaceholderTitle: '写下清楚的想法',
+    commentPlaceholderDesc: '评论会显示在这里，建议尽量简洁明确。',
+    commentPlaceholder: '写下你的评论...',
+    commentSubmit: '发表评论',
+    commentSubmitting: '正在发表...',
+    commentLoginRequired: '登录后才能查看并发表评论',
+    commentLoginDesc: '你已经可以浏览这款游戏了，但发表评论需要账号。',
+    commentLoginAction: '登录后评论',
+    commentLoading: '正在加载评论...',
+    commentLoadFailed: '评论加载失败',
+    commentSubmitFailed: '评论发送失败',
+    commentEmpty: '请先写一点评论内容。',
+    commentEdit: '编辑',
+    commentDelete: '删除',
+    commentSave: '保存',
+    commentCancel: '取消',
+    commentUpdating: '保存中...',
+    commentDeleteConfirm: '确定要删除这条评论吗？',
+    commentUpdateFailed: '评论更新失败',
+    commentDeleteFailed: '评论删除失败',
   },
   'en-US': {
     appName: 'G-Guide',
@@ -436,5 +484,29 @@ export const messages: Record<AppLocale, Messages> = {
     profileTopCategory: 'Top category',
     profileQuickActionsTitle: 'Quick Actions',
     profileQuickActionsDesc: 'Jump back to the places you use most often.',
+    gameComments: 'Comments',
+    gameCommentsDesc: 'Share what you think, or read what others felt about this game.',
+    gameCommentsEmptyTitle: 'No comments yet',
+    gameCommentsEmptyDesc: 'Be the first person to leave a comment.',
+    commentPlaceholderTitle: 'Write something clear',
+    commentPlaceholderDesc: 'Comments appear here, so keep it short and useful.',
+    commentPlaceholder: 'Write your comment...',
+    commentSubmit: 'Post comment',
+    commentSubmitting: 'Posting...',
+    commentLoginRequired: 'Log in to read and post comments',
+    commentLoginDesc: 'You can browse the game already, but commenting needs an account.',
+    commentLoginAction: 'Log in to comment',
+    commentLoading: 'Loading comments...',
+    commentLoadFailed: 'Failed to load comments',
+    commentSubmitFailed: 'Failed to post comment',
+    commentEmpty: 'Please write a comment first.',
+    commentEdit: 'Edit',
+    commentDelete: 'Delete',
+    commentSave: 'Save',
+    commentCancel: 'Cancel',
+    commentUpdating: 'Saving...',
+    commentDeleteConfirm: 'Delete this comment?',
+    commentUpdateFailed: 'Failed to update comment',
+    commentDeleteFailed: 'Failed to delete comment',
   },
 };
