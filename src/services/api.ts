@@ -26,6 +26,7 @@ const throwAppError = (error: any, fallback: string): never => {
 
 const api = axios.create({
   timeout: 60000, // 将全局超时时间增加到 60 秒，以适应 AI 响应
+  baseURL: import.meta.env.VITE_API_BASE_URL || '',
   headers: {
     'Content-Type': 'application/json',
   },
