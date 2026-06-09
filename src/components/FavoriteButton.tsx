@@ -1,5 +1,5 @@
 import type { MouseEvent } from 'react';
-import { useLocale } from '../i18n/LocaleProvider';
+import { useLocale } from '../i18n/useLocale';
 
 interface FavoriteButtonProps {
   active: boolean;

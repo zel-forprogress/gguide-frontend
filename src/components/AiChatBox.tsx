@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useLocale } from '../i18n/LocaleProvider';
+import { useLocale } from '../i18n/useLocale';
 import {
   chatWithAiApi,
   getAiConversationApi,
+  getAppErrorMessage,
   type AiConversationSummary,
   type AiMessage,
 } from '../services/api';
@@ -188,12 +189,12 @@ const AiChatBox: React.FC<AiChatBoxProps> = ({
         updatedAt: response.data.updatedAt,
         messageCount: response.data.messages?.length || nextMessages.length + 1,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       setMessages([
         ...nextMessages,
         {
           role: 'assistant',
-          content: `${t('aiErrorPrefix')}${error.message}`,
+          content: `${t('aiErrorPrefix')}${getAppErrorMessage(error, 'AI assistant unavailable')}`,
         },
       ]);
     } finally {

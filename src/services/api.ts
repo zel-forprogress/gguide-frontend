@@ -3,8 +3,22 @@ import type { AppLocale } from '../i18n/locale';
 import { getStoredLocale } from '../i18n/locale';
 import { clearStoredToken, getActiveStoredToken } from '../utils/auth';
 
-const getErrorMessage = (error: any, fallback: string) =>
-  error.response?.data?.message || error.response?.data?.error || fallback;
+type ApiErrorBody = {
+  message?: string;
+  error?: string;
+};
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (axios.isAxiosError<ApiErrorBody>(error)) {
+    return error.response?.data?.message || error.response?.data?.error || fallback;
+  }
+
+  if (error instanceof Error) {
+    return error.message || fallback;
+  }
+
+  return fallback;
+};
 
 export class UnauthorizedError extends Error {
   status: number;
@@ -16,7 +30,7 @@ export class UnauthorizedError extends Error {
   }
 }
 
-const throwAppError = (error: any, fallback: string): never => {
+const throwAppError = (error: unknown, fallback: string): never => {
   if (error instanceof UnauthorizedError) {
     throw error;
   }
@@ -24,8 +38,13 @@ const throwAppError = (error: any, fallback: string): never => {
   throw new Error(getErrorMessage(error, fallback));
 };
 
+export const getAppErrorMessage = (error: unknown, fallback: string) =>
+  getErrorMessage(error, fallback);
+
+export const isUnauthorizedError = (error: unknown) => error instanceof UnauthorizedError;
+
 const api = axios.create({
-  timeout: 60000, // 将全局超时时间增加到 60 秒，以适应 AI 响应
+  timeout: 60000, // Keep enough time for AI responses.
   headers: {
     'Content-Type': 'application/json',
   },
@@ -161,7 +180,7 @@ export const loginApi = async (data: { username: string; password: string }) => 
       return response.data;
     }
     throw new Error(response.data.message || 'Login failed');
-  } catch (error: any) {
+  } catch (error: unknown) {
     return throwAppError(error, 'Login failed');
   }
 };
@@ -170,7 +189,7 @@ export const registerApi = async (data: { username: string; password: string }) 
   try {
     const response = await api.post<ResultVO<string>>('/api/auth/register', data);
     return response.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     return throwAppError(error, 'Register failed');
   }
 };
@@ -179,7 +198,7 @@ export const getCurrentUserApi = async () => {
   try {
     const response = await api.get<ResultVO<CurrentUser>>('/api/auth/me');
     return response.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     return throwAppError(error, 'Failed to load current user');
   }
 };
@@ -188,7 +207,7 @@ export const updateAvatarApi = async (avatarUrl: string) => {
   try {
     const response = await api.put<ResultVO<CurrentUser>>('/api/auth/avatar', { avatarUrl });
     return response.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     return throwAppError(error, 'Failed to update avatar');
   }
 };
@@ -230,7 +249,7 @@ export const getGamesApi = async (locale?: AppLocale) => {
       params: { lang: locale ?? getStoredLocale() },
     });
     return response.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     return throwAppError(error, 'Failed to load games');
   }
 };
@@ -241,7 +260,7 @@ export const getGameDetailApi = async (id: string, locale?: AppLocale) => {
       params: { lang: locale ?? getStoredLocale() },
     });
     return response.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     return throwAppError(error, 'Failed to load game detail');
   }
 };
@@ -250,7 +269,7 @@ export const getGameCommentsApi = async (gameId: string) => {
   try {
     const response = await api.get<ResultVO<GameComment[]>>(`/api/games/${gameId}/comments`);
     return response.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     return throwAppError(error, 'Failed to load game comments');
   }
 };
@@ -259,7 +278,7 @@ export const createGameCommentApi = async (gameId: string, data: CreateGameComme
   try {
     const response = await api.post<ResultVO<GameComment>>(`/api/games/${gameId}/comments`, data);
     return response.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     return throwAppError(error, 'Failed to post game comment');
   }
 };
@@ -272,7 +291,7 @@ export const updateGameCommentApi = async (
   try {
     const response = await api.put<ResultVO<GameComment>>(`/api/games/${gameId}/comments/${commentId}`, data);
     return response.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     return throwAppError(error, 'Failed to update game comment');
   }
 };
@@ -281,7 +300,7 @@ export const deleteGameCommentApi = async (gameId: string, commentId: string) =>
   try {
     const response = await api.delete<ResultVO<string>>(`/api/games/${gameId}/comments/${commentId}`);
     return response.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     return throwAppError(error, 'Failed to delete game comment');
   }
 };
@@ -292,7 +311,7 @@ export const createGameApi = async (data: CreateGamePayload, locale?: AppLocale)
       params: { lang: locale ?? getStoredLocale() },
     });
     return response.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     return throwAppError(error, 'Failed to create game');
   }
 };
@@ -303,7 +322,7 @@ export const updateGameApi = async (id: string, data: CreateGamePayload, locale?
       params: { lang: locale ?? getStoredLocale() },
     });
     return response.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     return throwAppError(error, 'Failed to update game');
   }
 };
@@ -314,7 +333,7 @@ export const getFavoritesApi = async (locale?: AppLocale) => {
       params: { lang: locale ?? getStoredLocale() },
     });
     return response.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     return throwAppError(error, 'Failed to load favorites');
   }
 };
@@ -323,7 +342,7 @@ export const getFavoriteStatusApi = async (gameId: string) => {
   try {
     const response = await api.get<ResultVO<boolean>>(`/api/favorites/${gameId}/status`);
     return response.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     return throwAppError(error, 'Failed to load favorite status');
   }
 };
@@ -332,7 +351,7 @@ export const addFavoriteApi = async (gameId: string) => {
   try {
     const response = await api.post<ResultVO<boolean>>(`/api/favorites/${gameId}`);
     return response.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     return throwAppError(error, 'Failed to add favorite');
   }
 };
@@ -341,7 +360,7 @@ export const removeFavoriteApi = async (gameId: string) => {
   try {
     const response = await api.delete<ResultVO<boolean>>(`/api/favorites/${gameId}`);
     return response.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     return throwAppError(error, 'Failed to remove favorite');
   }
 };
@@ -352,7 +371,7 @@ export const getRecentlyViewedApi = async (locale?: AppLocale) => {
       params: { lang: locale ?? getStoredLocale() },
     });
     return response.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     return throwAppError(error, 'Failed to load recently viewed games');
   }
 };
@@ -361,13 +380,13 @@ export const recordRecentViewApi = async (gameId: string) => {
   try {
     const response = await api.post<ResultVO<boolean>>(`/api/recently-viewed/${gameId}`);
     return response.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     return throwAppError(error, 'Failed to record recent view');
   }
 };
 
 /**
- * AI 助手对话接口
+ * AI assistant chat API.
  */
 export const chatWithAiApi = async (messages: AiMessage[], conversationId?: string | null) => {
   try {
@@ -376,8 +395,8 @@ export const chatWithAiApi = async (messages: AiMessage[], conversationId?: stri
       messages,
     });
     return response.data;
-  } catch (error: any) {
-    throw new Error(getErrorMessage(error, 'AI 助手暂时不可用'));
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'AI assistant unavailable'));
   }
 };
 
@@ -385,7 +404,7 @@ export const getAiConversationsApi = async () => {
   try {
     const response = await api.get<ResultVO<AiConversationSummary[]>>('/api/ai/conversations');
     return response.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     return throwAppError(error, 'Failed to load AI chat history');
   }
 };
@@ -396,7 +415,7 @@ export const getAiConversationApi = async (conversationId: string) => {
       `/api/ai/conversations/${conversationId}`
     );
     return response.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     return throwAppError(error, 'Failed to load AI chat conversation');
   }
 };
@@ -405,7 +424,7 @@ export const getAiSettingsApi = async () => {
   try {
     const response = await api.get<ResultVO<AiSettings>>('/api/ai/settings');
     return response.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     return throwAppError(error, 'Failed to load AI settings');
   }
 };
@@ -414,7 +433,7 @@ export const updateAiSettingsApi = async (data: AiSettingsPayload) => {
   try {
     const response = await api.put<ResultVO<AiSettings>>('/api/ai/settings', data);
     return response.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     return throwAppError(error, 'Failed to update AI settings');
   }
 };

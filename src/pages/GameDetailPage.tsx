@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import FavoriteButton from '../components/FavoriteButton';
-import { useLocale } from '../i18n/LocaleProvider';
+import { useLocale } from '../i18n/useLocale';
 import {
   addFavoriteApi,
   createGameCommentApi,
   deleteGameCommentApi,
+  getAppErrorMessage,
   getCurrentUserApi,
   getGameCommentsApi,
   getFavoriteStatusApi,
@@ -13,6 +14,7 @@ import {
   recordRecentViewApi,
   removeFavoriteApi,
   updateGameCommentApi,
+  isUnauthorizedError,
   type CurrentUser,
   type GameComment,
   type Game,
@@ -125,10 +127,10 @@ const GameDetailPage = () => {
         if (!cancelled && response.code === 200 && response.data) {
           setCurrentUser(response.data);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (!cancelled) {
           setCurrentUser(null);
-          if (err?.status === 401) {
+          if (isUnauthorizedError(err)) {
             setIsLoggedIn(false);
             setSessionNotice(t('sessionExpiredMessage'));
           }
@@ -178,10 +180,10 @@ const GameDetailPage = () => {
           if (!cancelled && favoriteResponse.code === 200) {
             setIsFavorite(Boolean(favoriteResponse.data));
           }
-        } catch (favoriteError: any) {
+        } catch (favoriteError: unknown) {
           if (!cancelled) {
             setIsFavorite(false);
-            if (favoriteError?.status === 401) {
+            if (isUnauthorizedError(favoriteError)) {
               setIsLoggedIn(false);
               setSessionNotice(t('sessionExpiredMessage'));
             } else {
@@ -189,9 +191,9 @@ const GameDetailPage = () => {
             }
           }
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (!cancelled) {
-          setError(err.message || t('gameUnavailable'));
+          setError(getAppErrorMessage(err, t('gameUnavailable')));
         }
       } finally {
         if (!cancelled) {
@@ -244,9 +246,9 @@ const GameDetailPage = () => {
         } else {
           setCommentsError(response.message || t('commentLoadFailed'));
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (!cancelled) {
-          setCommentsError(err.message || t('commentLoadFailed'));
+          setCommentsError(getAppErrorMessage(err, t('commentLoadFailed')));
         }
       } finally {
         if (!cancelled) {
@@ -285,8 +287,8 @@ const GameDetailPage = () => {
         await addFavoriteApi(game.id);
         setIsFavorite(true);
       }
-    } catch (err: any) {
-      window.alert(err.message || t('actionFailed'));
+    } catch (err: unknown) {
+      window.alert(getAppErrorMessage(err, t('actionFailed')));
     } finally {
       setFavoriteLoading(false);
     }
@@ -319,14 +321,14 @@ const GameDetailPage = () => {
 
       setComments((current) => [...current, response.data]);
       setCommentValue('');
-    } catch (err: any) {
-      if (err?.status === 401) {
+    } catch (err: unknown) {
+      if (isUnauthorizedError(err)) {
         setIsLoggedIn(false);
         navigate('/auth');
         return;
       }
 
-      setCommentActionError(err.message || t('commentSubmitFailed'));
+      setCommentActionError(getAppErrorMessage(err, t('commentSubmitFailed')));
     } finally {
       setCommentSubmitting(false);
     }
@@ -368,14 +370,14 @@ const GameDetailPage = () => {
       )));
       setEditingCommentId('');
       setEditingCommentValue('');
-    } catch (err: any) {
-      if (err?.status === 401) {
+    } catch (err: unknown) {
+      if (isUnauthorizedError(err)) {
         setIsLoggedIn(false);
         navigate('/auth');
         return;
       }
 
-      setCommentManageError(err.message || t('commentUpdateFailed'));
+      setCommentManageError(getAppErrorMessage(err, t('commentUpdateFailed')));
     } finally {
       setManagingCommentId('');
     }
@@ -399,14 +401,14 @@ const GameDetailPage = () => {
         setEditingCommentId('');
         setEditingCommentValue('');
       }
-    } catch (err: any) {
-      if (err?.status === 401) {
+    } catch (err: unknown) {
+      if (isUnauthorizedError(err)) {
         setIsLoggedIn(false);
         navigate('/auth');
         return;
       }
 
-      setCommentManageError(err.message || t('commentDeleteFailed'));
+      setCommentManageError(getAppErrorMessage(err, t('commentDeleteFailed')));
     } finally {
       setManagingCommentId('');
     }

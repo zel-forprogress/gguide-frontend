@@ -1,9 +1,10 @@
 import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useLocale } from '../i18n/LocaleProvider';
+import { useLocale } from '../i18n/useLocale';
 import {
   createGameApi,
   getAiSettingsApi,
+  getAppErrorMessage,
   getCurrentUserApi,
   getGamesApi,
   updateGameApi,
@@ -111,7 +112,7 @@ const gameToAdminForm = (game: Game): AdminGameForm => ({
 const normalizeTitle = (value: string) => value.trim().toLocaleLowerCase();
 
 const normalizeSearchTitle = (value: string) =>
-  normalizeTitle(value).replace(/[\s·.。,:：;；'"“”‘’!?！？()[\]{}（）《》<>【】\-_/\\|]+/g, '');
+  normalizeTitle(value).replace(/[\s·.,:;'"!?()[\]{}<>《》【】「」『』，。！？；：（）\-_/\\|]+/g, '');
 
 const hasCjkText = (value: string) => /[\u3400-\u9fff]/.test(value);
 
@@ -192,7 +193,7 @@ const ProfileSettingsPage = () => {
               language: { title: '语言', description: '调整界面语言与显示方式。' },
               library: { title: '游戏资料', description: '查看收藏、最近查看和兴趣偏好。' },
               session: { title: '会话', description: '回到应用首页，或退出当前账号。' },
-              admin: { title: '游戏管理', description: '管理员可以在这里向游戏库添加新的游戏。' },
+              admin: { title: '游戏管理', description: '管理员可以在这里向游戏库添加或编辑游戏。' },
             },
             rows: {
               username: { label: '用户名', desc: '当前登录账号名称' },
@@ -242,7 +243,7 @@ const ProfileSettingsPage = () => {
               updating: '正在保存...',
               success: '游戏已添加到游戏库。',
               updateSuccess: '游戏信息已更新。',
-              duplicateExists: '“{title}” 已存在于游戏库中，建议直接使用已有条目，无需继续填写新增表单。',
+              duplicateExists: '“{title}” 已存在于游戏库中，建议直接使用已有条目。',
             },
             aiForm: {
               kicker: '个人配置',
@@ -270,27 +271,27 @@ const ProfileSettingsPage = () => {
             adminBadge: 'Admin',
             noPreference: 'No preference yet',
             sections: {
-              general: { title: 'General', description: 'Review the most common settings and your current account summary.' },
-              account: { title: 'Account', description: 'Manage your basic account information and sign-in state.' },
+              general: { title: 'General', description: 'Review common settings and account status.' },
+              account: { title: 'Account', description: 'Manage account basics and sign-in state.' },
               ai: { title: 'AI Assistant', description: 'Configure your own model service for the G-Guide assistant.' },
               language: { title: 'Language', description: 'Adjust interface language and display behavior.' },
               library: { title: 'Game Data', description: 'Review favorites, recent activity, and interest signals.' },
-              session: { title: 'Session', description: 'Return to the app home or sign out of the current account.' },
-              admin: { title: 'Game Admin', description: 'Admins can add new games to the library here.' },
+              session: { title: 'Session', description: 'Return home or sign out of the current account.' },
+              admin: { title: 'Game Admin', description: 'Admins can add or edit games in the library here.' },
             },
             rows: {
-              username: { label: 'Username', desc: 'The name of the account currently signed in' },
+              username: { label: 'Username', desc: 'The signed-in account name' },
               avatar: { label: 'Avatar', desc: 'Upload an image as your profile avatar' },
               role: { label: 'Account role', desc: 'Used to distinguish regular users from admins' },
               status: { label: 'Session state', desc: 'Current authentication status' },
-              language: { label: 'App language', desc: 'Switching updates both interface copy and game content' },
+              language: { label: 'App language', desc: 'Switching updates interface copy and game content' },
               favorites: { label: 'Favorite games', desc: 'How many games you have saved' },
               recent: { label: 'Recently viewed', desc: 'How many game detail pages you opened lately' },
               preference: { label: 'Top categories', desc: 'Frequent categories inferred from favorites' },
               backHome: { label: 'Back to home', desc: 'Return to the home page and keep exploring' },
               favoritesEntry: { label: 'Open favorites', desc: 'Jump straight to your saved games' },
               recentEntry: { label: 'Open recently viewed', desc: 'Continue from what you opened most recently' },
-              logout: { label: 'Log out', desc: 'Clear the current session and go back to auth' },
+              logout: { label: 'Log out', desc: 'Clear the current session and return to auth' },
             },
             statusActive: 'Signed in',
             statusHealthy: 'Session active',
@@ -301,7 +302,7 @@ const ProfileSettingsPage = () => {
             avatarUpdated: 'Avatar updated.',
             avatarInvalid: 'Choose an image file.',
             avatarTooLarge: 'Image must be under 1 MB.',
-            logout: 'Log Out',
+            logout: 'Log out',
             adminForm: {
               titleZh: 'Chinese title',
               titleEn: 'English title',
@@ -326,7 +327,7 @@ const ProfileSettingsPage = () => {
               updating: 'Saving...',
               success: 'Game added to the library.',
               updateSuccess: 'Game details updated.',
-              duplicateExists: '"{title}" already exists in the game library. Use the existing entry instead of filling out a new one.',
+              duplicateExists: '"{title}" already exists in the game library. Use the existing entry instead.',
             },
             aiForm: {
               kicker: 'Personal setup',
@@ -338,7 +339,7 @@ const ProfileSettingsPage = () => {
               baseUrlPlaceholder: 'https://api.deepseek.com or https://api.openai.com/v1',
               model: 'Model',
               modelPlaceholder: 'deepseek-chat / gpt-4o-mini, etc.',
-              helper: 'Keep Base URL available so users can connect DeepSeek, OpenAI-compatible gateways, or local model services. A full /chat/completions endpoint also works.',
+              helper: 'Update the configuration above for the model you want to call. The displayed Base URL and model name use server defaults.',
               savedKey: 'Saved key',
               inherited: 'Using server default',
               save: 'Save settings',
@@ -376,9 +377,9 @@ const ProfileSettingsPage = () => {
         if (userResponse.code === 200) {
           setCurrentUser(userResponse.data);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (!cancelled) {
-          setError(err.message || t('loadingContent'));
+          setError(getAppErrorMessage(err, t('loadingContent')));
         }
       }
     };
@@ -424,9 +425,9 @@ const ProfileSettingsPage = () => {
           baseUrl: settings.baseUrl || '',
           model: settings.model || '',
         });
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (!cancelled) {
-          setAiSettingsError(err.message || copy.aiForm.loading);
+          setAiSettingsError(getAppErrorMessage(err, copy.aiForm.loading));
         }
       } finally {
         setAiSettingsLoading(false);
@@ -482,8 +483,8 @@ const ProfileSettingsPage = () => {
       }
       setCurrentUser(response.data);
       setAvatarMessage(copy.avatarUpdated);
-    } catch (err: any) {
-      setAvatarError(err.message || copy.avatarInvalid);
+    } catch (err: unknown) {
+      setAvatarError(getAppErrorMessage(err, copy.avatarInvalid));
     } finally {
       setAvatarSaving(false);
     }
@@ -627,8 +628,8 @@ const ProfileSettingsPage = () => {
 
       setDuplicateGame(null);
       setAdminMessage(adminGameMode === 'edit' ? copy.adminForm.updateSuccess : copy.adminForm.success);
-    } catch (err: any) {
-      setAdminError(err.message || (adminGameMode === 'edit' ? 'Failed to update game' : 'Failed to create game'));
+    } catch (err: unknown) {
+      setAdminError(getAppErrorMessage(err, adminGameMode === 'edit' ? 'Failed to update game' : 'Failed to create game'));
     } finally {
       setAdminSaving(false);
     }
@@ -663,8 +664,8 @@ const ProfileSettingsPage = () => {
         model: response.data.model || '',
       });
       setAiSettingsMessage(copy.aiForm.saved);
-    } catch (err: any) {
-      setAiSettingsError(err.message || 'Failed to save AI settings');
+    } catch (err: unknown) {
+      setAiSettingsError(getAppErrorMessage(err, 'Failed to save AI settings'));
     } finally {
       setAiSettingsSaving(false);
     }
@@ -692,8 +693,8 @@ const ProfileSettingsPage = () => {
         model: response.data.model || '',
       });
       setAiSettingsMessage(copy.aiForm.cleared);
-    } catch (err: any) {
-      setAiSettingsError(err.message || 'Failed to clear AI settings');
+    } catch (err: unknown) {
+      setAiSettingsError(getAppErrorMessage(err, 'Failed to clear AI settings'));
     } finally {
       setAiSettingsSaving(false);
     }

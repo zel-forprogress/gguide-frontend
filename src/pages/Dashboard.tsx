@@ -1,14 +1,15 @@
-import { useEffect, useMemo, useState, type KeyboardEvent, type MouseEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Autoplay, Pagination } from 'swiper/modules';
 import FavoriteButton from '../components/FavoriteButton';
 import AiChatBox from '../components/AiChatBox';
-import { useLocale } from '../i18n/LocaleProvider';
+import { useLocale } from '../i18n/useLocale';
 import {
   addFavoriteApi,
   getCurrentUserApi,
   getAiConversationsApi,
+  getAppErrorMessage,
   getFavoritesApi,
   getGamesApi,
   getRecentlyViewedApi,
@@ -112,7 +113,7 @@ const Dashboard = () => {
     };
   }, [isLoggedIn]);
 
-  const loadAiConversations = async () => {
+  const loadAiConversations = useCallback(async () => {
     if (!isLoggedIn) {
       setAiConversations([]);
       setActiveAiConversationId(null);
@@ -130,7 +131,7 @@ const Dashboard = () => {
     } finally {
       setAiHistoryLoading(false);
     }
-  };
+  }, [isLoggedIn]);
 
   useEffect(() => {
     if (activeView !== 'ai') {
@@ -138,7 +139,7 @@ const Dashboard = () => {
     }
 
     void loadAiConversations();
-  }, [activeView, isLoggedIn]);
+  }, [activeView, loadAiConversations]);
 
   useEffect(() => {
     const requestedView = location.state?.view as DashboardView | undefined;
@@ -161,8 +162,8 @@ const Dashboard = () => {
         }
 
         setError(response.message || t('loadingContent'));
-      } catch (err: any) {
-        setError(err.message || t('loadingContent'));
+      } catch (err: unknown) {
+        setError(getAppErrorMessage(err, t('loadingContent')));
       } finally {
         setLoading(false);
       }
@@ -242,22 +243,26 @@ const Dashboard = () => {
   const searchKeyword = searchTerm.trim().toLowerCase();
   const searchDraftKeyword = searchDraft.trim().toLowerCase();
 
-  const getGameTitleSearchableText = (game: Game) =>
+  const getGameTitleSearchableText = useCallback((game: Game) =>
     [
       game.title,
       ...Object.values(game.titleI18n || {}),
     ]
       .filter(Boolean)
       .join(' ')
-      .toLowerCase();
+      .toLowerCase(), []);
 
-  const getConversationTitleSearchableText = (conversation: AiConversationSummary) =>
-    conversation.title?.toLowerCase() || '';
+  const getConversationTitleSearchableText = useCallback(
+    (conversation: AiConversationSummary) => conversation.title?.toLowerCase() || '',
+    []
+  );
 
-  const getGameSuggestionKey = (game: Game) =>
-    (game.titleI18n?.[locale] || game.title || '').trim().toLowerCase();
+  const getGameSuggestionKey = useCallback(
+    (game: Game) => (game.titleI18n?.[locale] || game.title || '').trim().toLowerCase(),
+    [locale]
+  );
 
-  const dedupeGamesByTitle = (source: Game[]) => {
+  const dedupeGamesByTitle = useCallback((source: Game[]) => {
     const seen = new Set<string>();
     return source.filter((game) => {
       const key = getGameSuggestionKey(game) || game.id;
@@ -268,23 +273,23 @@ const Dashboard = () => {
       seen.add(key);
       return true;
     });
-  };
+  }, [getGameSuggestionKey]);
 
-  const matchesKeyword = (game: Game) => {
+  const matchesKeyword = useCallback((game: Game) => {
     if (!searchKeyword) {
       return true;
     }
 
     return getGameTitleSearchableText(game).includes(searchKeyword);
-  };
+  }, [getGameTitleSearchableText, searchKeyword]);
 
-  const matchesConversationKeyword = (conversation: AiConversationSummary) => {
+  const matchesConversationKeyword = useCallback((conversation: AiConversationSummary) => {
     if (!searchKeyword) {
       return true;
     }
 
     return getConversationTitleSearchableText(conversation).includes(searchKeyword);
-  };
+  }, [getConversationTitleSearchableText, searchKeyword]);
 
   const gameSearchSource = useMemo(() => {
     if (activeView === 'favorites') {
@@ -320,7 +325,15 @@ const Dashboard = () => {
       .filter((game) => getGameTitleSearchableText(game).includes(searchDraftKeyword))
       .slice(0, 6)
       .map((game) => ({ type: 'game', game }));
-  }, [activeView, aiConversations, gameSearchSource, searchDraftKeyword]);
+  }, [
+    activeView,
+    aiConversations,
+    dedupeGamesByTitle,
+    gameSearchSource,
+    getConversationTitleSearchableText,
+    getGameTitleSearchableText,
+    searchDraftKeyword,
+  ]);
 
   const showSearchSuggestions =
     isSearchFocused && searchDraftKeyword.length > 0 && searchSuggestions.length > 0;
@@ -388,16 +401,16 @@ const Dashboard = () => {
   const filteredHomeRecommendedGames = useMemo(() => {
     const source = searchKeyword ? games : homeRecommendedGames;
     return source.filter(matchesKeyword);
-  }, [games, homeRecommendedGames, searchKeyword]);
+  }, [games, homeRecommendedGames, matchesKeyword, searchKeyword]);
 
   const filteredFavoriteGames = useMemo(
     () => favoriteGames.filter(matchesKeyword),
-    [favoriteGames, searchKeyword]
+    [favoriteGames, matchesKeyword]
   );
 
   const filteredRecentGames = useMemo(
     () => recentGames.filter(matchesKeyword),
-    [recentGames, searchKeyword]
+    [recentGames, matchesKeyword]
   );
 
   const hubCategories = useMemo(() => {
@@ -450,11 +463,11 @@ const Dashboard = () => {
   const hubFilteredGames = useMemo(() => {
     const source = searchKeyword ? games : hubSourceGames;
     return source.filter(matchesKeyword);
-  }, [games, hubSourceGames, searchKeyword]);
+  }, [games, hubSourceGames, matchesKeyword, searchKeyword]);
 
   const filteredAiConversations = useMemo(
     () => aiConversations.filter(matchesConversationKeyword),
-    [aiConversations, searchKeyword]
+    [aiConversations, matchesConversationKeyword]
   );
 
   const handleLogout = () => {
@@ -528,8 +541,8 @@ const Dashboard = () => {
           return [game, ...current];
         });
       }
-    } catch (err: any) {
-      window.alert(err.message || t('actionFailed'));
+    } catch (err: unknown) {
+      window.alert(getAppErrorMessage(err, t('actionFailed')));
     } finally {
       setPendingFavoriteIds((current) => current.filter((id) => id !== game.id));
     }
@@ -1050,7 +1063,7 @@ const Dashboard = () => {
                       <strong>{game.title}</strong>
                       <small>
                         {getPrimaryCategory(game)}
-                        {' · '}
+                        {' 路 '}
                         {typeof game.rating === 'number' ? `${game.rating.toFixed(1)} / 10` : t('noRating')}
                       </small>
                     </span>

@@ -2,9 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useRoutes } from 'react-router-dom';
 import routes from './routes';
 import './App.css';
-import { useLocale } from './i18n/LocaleProvider';
+import { useLocale } from './i18n/useLocale';
 import {
-  checkStoredTokenExpiration,
   subscribeAuthExpired,
   type AuthExpiredDetail,
 } from './utils/auth';
@@ -25,11 +24,6 @@ function App({ initialAuthExpired = null }: AppProps) {
     const unsubscribe = subscribeAuthExpired((detail) => {
       setAuthExpiredNotice(detail);
     });
-    const detail = checkStoredTokenExpiration();
-
-    if (detail) {
-      setAuthExpiredNotice(detail);
-    }
 
     return unsubscribe;
   }, []);

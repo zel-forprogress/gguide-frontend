@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import LanguageSwitcher from '../components/LanguageSwitcher';
-import { useLocale } from '../i18n/LocaleProvider';
-import { loginApi, registerApi } from '../services/api';
+import { useLocale } from '../i18n/useLocale';
+import { getAppErrorMessage, loginApi, registerApi } from '../services/api';
 import { setStoredToken } from '../utils/auth';
 
 const LandingPage = () => {
@@ -34,7 +34,7 @@ const LandingPage = () => {
     const normalized = message.toLowerCase();
 
     if (
-      message.includes('用户名已存在') ||
+      message.includes('鐢ㄦ埛鍚嶅凡瀛樺湪') ||
       normalized.includes('username already exists') ||
       normalized.includes('user already exists')
     ) {
@@ -42,8 +42,6 @@ const LandingPage = () => {
     }
 
     if (
-      message.includes('用户不存在') ||
-      message.includes('密码错误') ||
       normalized.includes('user not found') ||
       normalized.includes('wrong password') ||
       normalized.includes('invalid password') ||
@@ -84,8 +82,8 @@ const LandingPage = () => {
         setIsLoginMode(true);
         setPassword('');
       }
-    } catch (err: any) {
-      setError(getLocalizedAuthError(err.message));
+    } catch (err: unknown) {
+      setError(getLocalizedAuthError(getAppErrorMessage(err, isLoginMode ? t('loginFailed') : t('registerFailed'))));
     } finally {
       setLoading(false);
     }

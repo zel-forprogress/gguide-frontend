@@ -1,4 +1,4 @@
-import { useLocale } from '../i18n/LocaleProvider';
+import { useLocale } from '../i18n/useLocale';
 import type { AppLocale } from '../i18n/locale';
 
 const locales: AppLocale[] = ['zh-CN', 'en-US'];
