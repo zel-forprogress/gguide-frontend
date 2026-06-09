@@ -441,12 +441,17 @@
 }
 
 .top-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
   height: var(--header-height);
   padding: 0 40px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid var(--border);
+  background: #fff;
+  flex-shrink: 0;
 }
 
 .dashboard-primary-section {
@@ -3231,7 +3236,7 @@
 
 .ai-chat-container.is-panel.is-chat {
   justify-content: flex-start;
-  min-height: calc(100vh - var(--header-height) - 40px);
+  min-height: calc(100vh - var(--header-height));
   padding: 0;
 }
 
@@ -3304,12 +3309,14 @@
 
 .ai-chat-container.is-panel.is-chat .ai-chat-messages {
   width: min(920px, calc(100vw - var(--sidebar-width) - 96px));
-  min-height: calc(100vh - var(--header-height) - 120px);
-  height: auto;
+  height: calc(100vh - var(--header-height) - 116px);
+  min-height: 420px;
   flex: initial;
   padding: 28px 0 120px;
   background: transparent;
-  overflow: visible;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-padding-top: 28px;
 }
 
 .ai-message-wrapper {
@@ -3362,6 +3369,7 @@
   font-size: 14px;
   line-height: 1.7;
   word-break: break-word;
+  overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
 
@@ -3391,6 +3399,8 @@
   margin: 0 0 18px;
   color: #111827;
   line-height: 1.85;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .assistant .ai-rendered-paragraph strong {
@@ -3448,6 +3458,7 @@
   margin: 0 0 18px;
   padding: 0;
   list-style: none;
+  white-space: normal;
 }
 
 .assistant .ai-rendered-card .ai-rendered-list {
@@ -3459,6 +3470,7 @@
   padding-left: 18px;
   color: #273244;
   line-height: 1.75;
+  overflow-wrap: anywhere;
 }
 
 .assistant .ai-rendered-list li::before {
@@ -3779,16 +3791,16 @@
   }
 
   .ai-chat-container.is-panel.is-chat {
-    min-height: calc(100vh - var(--header-height) - 40px);
+    min-height: calc(100vh - var(--header-height));
     padding: 0;
   }
 
   .ai-chat-container.is-panel.is-chat .ai-chat-messages {
     width: calc(100vw - 48px);
-    min-height: calc(100vh - var(--header-height) - 110px);
-    height: auto;
+    height: calc(100vh - var(--header-height) - 112px);
+    min-height: 360px;
     padding: 24px 0 128px;
-    overflow: visible;
+    overflow-y: auto;
   }
 
   .ai-chat-container.is-panel.is-chat .ai-chat-input-area {

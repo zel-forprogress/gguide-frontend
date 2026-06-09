@@ -30,8 +30,23 @@ const renderInlineMarkdown = (text: string) =>
     return <React.Fragment key={index}>{part}</React.Fragment>;
   });
 
+const normalizeAssistantContent = (content: string) =>
+  content
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/[ \t]+$/gm, '')
+    .replace(/([^\n])\s+(?=(?:◆|◇|•|·|-|\*)\s+)/g, '$1\n')
+    .replace(/([^\n])\s+(?=\d+[.)]\s+)/g, '$1\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+const getBulletText = (line: string) => line.replace(/^(?:◆|◇|•|·|-|\*)\s+/, '').trim();
+
+const isBulletLine = (line: string) => /^(?:◆|◇|•|·|-|\*)\s+/.test(line);
+
 const renderAssistantContent = (content: string) => {
-  const sections = content
+  const normalizedContent = normalizeAssistantContent(content);
+  const sections = normalizedContent
     .split(/\n\s*\n/)
     .map((section) => section.trim())
     .filter(Boolean);
@@ -42,12 +57,12 @@ const renderAssistantContent = (content: string) => {
 
   return sections.map((section, sectionIndex) => {
     const lines = section.split('\n').map((line) => line.trim()).filter(Boolean);
-    const numberedMatch = lines[0]?.match(/^(\d+)\.\s+(.*)$/);
+    const numberedMatch = lines[0]?.match(/^(\d+)[.)]\s+(.*)$/);
 
     if (numberedMatch) {
       const bulletLines = lines
         .slice(1)
-        .map((line) => line.replace(/^[*-]\s+/, '').trim())
+        .map((line) => (isBulletLine(line) ? getBulletText(line) : line))
         .filter(Boolean);
 
       return (
@@ -67,13 +82,34 @@ const renderAssistantContent = (content: string) => {
       );
     }
 
-    if (lines.every((line) => /^[*-]\s+/.test(line))) {
+    if (lines.every(isBulletLine)) {
       return (
         <ul className="ai-rendered-list" key={sectionIndex}>
           {lines.map((line, lineIndex) => (
-            <li key={lineIndex}>{renderInlineMarkdown(line.replace(/^[*-]\s+/, '').trim())}</li>
+            <li key={lineIndex}>{renderInlineMarkdown(getBulletText(line))}</li>
           ))}
         </ul>
+      );
+    }
+
+    if (lines.some(isBulletLine)) {
+      const firstBulletIndex = lines.findIndex(isBulletLine);
+      const introLines = lines.slice(0, firstBulletIndex).filter(Boolean);
+      const bulletLines = lines.slice(firstBulletIndex);
+
+      return (
+        <div className="ai-rendered-section" key={sectionIndex}>
+          {introLines.length > 0 ? (
+            <p className="ai-rendered-paragraph">{renderInlineMarkdown(introLines.join(' '))}</p>
+          ) : null}
+          <ul className="ai-rendered-list">
+            {bulletLines.map((line, lineIndex) => (
+              <li key={lineIndex}>
+                {renderInlineMarkdown(isBulletLine(line) ? getBulletText(line) : line)}
+              </li>
+            ))}
+          </ul>
+        </div>
       );
     }
 
@@ -97,7 +133,7 @@ const AiChatBox: React.FC<AiChatBoxProps> = ({
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(conversationId);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const hasStartedChat = messages.length > 0 || isLoading;
   const modeClass = hasStartedChat ? 'is-chat' : 'is-empty';
 
@@ -137,7 +173,15 @@ const AiChatBox: React.FC<AiChatBoxProps> = ({
   }, [conversationId]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const messagesContainer = messagesContainerRef.current;
+    if (!messagesContainer) {
+      return;
+    }
+
+    messagesContainer.scrollTo({
+      top: messagesContainer.scrollHeight,
+      behavior: 'smooth',
+    });
   }, [messages, isLoading]);
 
   const handleSend = async () => {
@@ -252,7 +296,7 @@ const AiChatBox: React.FC<AiChatBoxProps> = ({
 
       {hasStartedChat ? (
         <>
-          <div className="ai-chat-messages">
+          <div className="ai-chat-messages" ref={messagesContainerRef}>
             {messages.map((message, index) => (
               <div key={index} className={`ai-message-wrapper ${message.role}`}>
                 <div className="ai-message-avatar">{message.role === 'assistant' ? 'AI' : t('aiUserAvatar')}</div>
@@ -282,8 +326,6 @@ const AiChatBox: React.FC<AiChatBoxProps> = ({
                 </div>
               </div>
             ) : null}
-
-            <div ref={messagesEndRef} />
           </div>
 
           {renderInput('chat')}
