@@ -3362,6 +3362,7 @@
   font-size: 14px;
   line-height: 1.7;
   word-break: break-word;
+  overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
 
@@ -3391,6 +3392,8 @@
   margin: 0 0 18px;
   color: #111827;
   line-height: 1.85;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .assistant .ai-rendered-paragraph strong {
@@ -3448,6 +3451,7 @@
   margin: 0 0 18px;
   padding: 0;
   list-style: none;
+  white-space: normal;
 }
 
 .assistant .ai-rendered-card .ai-rendered-list {
@@ -3459,6 +3463,7 @@
   padding-left: 18px;
   color: #273244;
   line-height: 1.75;
+  overflow-wrap: anywhere;
 }
 
 .assistant .ai-rendered-list li::before {
