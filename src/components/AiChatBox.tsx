@@ -133,7 +133,7 @@ const AiChatBox: React.FC<AiChatBoxProps> = ({
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(conversationId);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const hasStartedChat = messages.length > 0 || isLoading;
   const modeClass = hasStartedChat ? 'is-chat' : 'is-empty';
 
@@ -173,7 +173,15 @@ const AiChatBox: React.FC<AiChatBoxProps> = ({
   }, [conversationId]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const messagesContainer = messagesContainerRef.current;
+    if (!messagesContainer) {
+      return;
+    }
+
+    messagesContainer.scrollTo({
+      top: messagesContainer.scrollHeight,
+      behavior: 'smooth',
+    });
   }, [messages, isLoading]);
 
   const handleSend = async () => {
@@ -288,7 +296,7 @@ const AiChatBox: React.FC<AiChatBoxProps> = ({
 
       {hasStartedChat ? (
         <>
-          <div className="ai-chat-messages">
+          <div className="ai-chat-messages" ref={messagesContainerRef}>
             {messages.map((message, index) => (
               <div key={index} className={`ai-message-wrapper ${message.role}`}>
                 <div className="ai-message-avatar">{message.role === 'assistant' ? 'AI' : t('aiUserAvatar')}</div>
@@ -318,8 +326,6 @@ const AiChatBox: React.FC<AiChatBoxProps> = ({
                 </div>
               </div>
             ) : null}
-
-            <div ref={messagesEndRef} />
           </div>
 
           {renderInput('chat')}

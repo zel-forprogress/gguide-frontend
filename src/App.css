@@ -441,12 +441,17 @@
 }
 
 .top-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
   height: var(--header-height);
   padding: 0 40px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid var(--border);
+  background: #fff;
+  flex-shrink: 0;
 }
 
 .dashboard-primary-section {
@@ -3231,7 +3236,7 @@
 
 .ai-chat-container.is-panel.is-chat {
   justify-content: flex-start;
-  min-height: calc(100vh - var(--header-height) - 40px);
+  min-height: calc(100vh - var(--header-height));
   padding: 0;
 }
 
@@ -3304,12 +3309,14 @@
 
 .ai-chat-container.is-panel.is-chat .ai-chat-messages {
   width: min(920px, calc(100vw - var(--sidebar-width) - 96px));
-  min-height: calc(100vh - var(--header-height) - 120px);
-  height: auto;
+  height: calc(100vh - var(--header-height) - 116px);
+  min-height: 420px;
   flex: initial;
   padding: 28px 0 120px;
   background: transparent;
-  overflow: visible;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-padding-top: 28px;
 }
 
 .ai-message-wrapper {
@@ -3784,16 +3791,16 @@
   }
 
   .ai-chat-container.is-panel.is-chat {
-    min-height: calc(100vh - var(--header-height) - 40px);
+    min-height: calc(100vh - var(--header-height));
     padding: 0;
   }
 
   .ai-chat-container.is-panel.is-chat .ai-chat-messages {
     width: calc(100vw - 48px);
-    min-height: calc(100vh - var(--header-height) - 110px);
-    height: auto;
+    height: calc(100vh - var(--header-height) - 112px);
+    min-height: 360px;
     padding: 24px 0 128px;
-    overflow: visible;
+    overflow-y: auto;
   }
 
   .ai-chat-container.is-panel.is-chat .ai-chat-input-area {
