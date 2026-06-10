@@ -26,6 +26,11 @@ import 'swiper/css/pagination';
 
 type DashboardView = 'home' | 'recent' | 'favorites' | 'hub' | 'ai';
 type RecommendationMode = 'favorite' | 'recent' | 'top';
+type DashboardLocationState = {
+  view?: DashboardView;
+  contextGameId?: string;
+  contextGameTitle?: string;
+};
 type SearchSuggestion =
   | { type: 'game'; game: Game }
   | { type: 'conversation'; conversation: AiConversationSummary };
@@ -52,6 +57,8 @@ const Dashboard = () => {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [aiConversations, setAiConversations] = useState<AiConversationSummary[]>([]);
   const [activeAiConversationId, setActiveAiConversationId] = useState<string | null>(null);
+  const [activeAiContextGameId, setActiveAiContextGameId] = useState<string | null>(null);
+  const [activeAiContextGameTitle, setActiveAiContextGameTitle] = useState<string | null>(null);
   const [aiHistoryLoading, setAiHistoryLoading] = useState(false);
 
   const formatReleaseDate = (releaseDate?: string) => {
@@ -82,6 +89,8 @@ const Dashboard = () => {
       setCurrentUser(null);
       setAiConversations([]);
       setActiveAiConversationId(null);
+      setActiveAiContextGameId(null);
+      setActiveAiContextGameTitle(null);
     });
 
     return unsubscribe;
@@ -142,9 +151,25 @@ const Dashboard = () => {
   }, [activeView, loadAiConversations]);
 
   useEffect(() => {
-    const requestedView = location.state?.view as DashboardView | undefined;
+    const navigationState = location.state as DashboardLocationState | null;
+    const requestedView = navigationState?.view;
+    const requestedContextGameId =
+      typeof navigationState?.contextGameId === 'string' ? navigationState.contextGameId : null;
+    const requestedContextGameTitle =
+      typeof navigationState?.contextGameTitle === 'string' ? navigationState.contextGameTitle : null;
+
     if (requestedView && ['home', 'recent', 'favorites', 'hub', 'ai'].includes(requestedView)) {
       setActiveView(requestedView);
+    }
+
+    if (requestedContextGameId) {
+      setActiveView('ai');
+      setActiveAiConversationId(null);
+      setActiveAiContextGameId(requestedContextGameId);
+      setActiveAiContextGameTitle(requestedContextGameTitle);
+    }
+
+    if (requestedView || requestedContextGameId) {
       navigate(location.pathname, { replace: true, state: null });
     }
   }, [location.pathname, location.state, navigate]);
@@ -478,6 +503,8 @@ const Dashboard = () => {
     setCurrentUser(null);
     setAiConversations([]);
     setActiveAiConversationId(null);
+    setActiveAiContextGameId(null);
+    setActiveAiContextGameTitle(null);
     setActiveView('home');
     navigate('/', { replace: true });
   };
@@ -506,6 +533,8 @@ const Dashboard = () => {
     if (suggestion.type === 'conversation') {
       commitSearch(suggestion.conversation.title || t('aiUntitledChat'));
       setActiveAiConversationId(suggestion.conversation.id);
+      setActiveAiContextGameId(null);
+      setActiveAiContextGameTitle(null);
       return;
     }
 
@@ -842,6 +871,8 @@ const Dashboard = () => {
 
   const handleStartNewAiChat = () => {
     setActiveAiConversationId(null);
+    setActiveAiContextGameId(null);
+    setActiveAiContextGameTitle(null);
   };
 
   const renderAiHistory = () => {
@@ -875,7 +906,11 @@ const Dashboard = () => {
                 className={`ai-history-item${
                   activeAiConversationId === conversation.id ? ' is-active' : ''
                 }`}
-                onClick={() => setActiveAiConversationId(conversation.id)}
+                onClick={() => {
+                  setActiveAiConversationId(conversation.id);
+                  setActiveAiContextGameId(null);
+                  setActiveAiContextGameTitle(null);
+                }}
               >
                 <span>{conversation.title || t('aiUntitledChat')}</span>
                 <small>
@@ -895,6 +930,8 @@ const Dashboard = () => {
         <AiChatBox
           layout="panel"
           conversationId={activeAiConversationId}
+          contextGameId={activeAiContextGameId}
+          contextGameTitle={activeAiContextGameTitle}
           onClose={() => setActiveView('home')}
           onConversationSaved={handleAiConversationSaved}
         />
@@ -990,7 +1027,7 @@ const Dashboard = () => {
         {renderAiHistory()}
       </aside>
 
-      <main className="main-content">
+      <main className={`main-content${activeView === 'ai' ? ' is-ai-view' : ''}`}>
         <header className="top-header">
           <div className="search-shell">
             <div className="search-bar">
@@ -1106,7 +1143,11 @@ const Dashboard = () => {
           </div>
         </header>
 
-        <section className="content-grid-section dashboard-primary-section" style={{ marginTop: '40px' }}>
+        <section
+          className={`content-grid-section dashboard-primary-section${
+            activeView === 'ai' ? ' is-ai-view' : ''
+          }`}
+        >
             {activeView === 'home' ? (
               <>
               {!loading && todayRecommendations.length > 0 ? (

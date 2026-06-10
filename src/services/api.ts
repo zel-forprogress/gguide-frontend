@@ -157,6 +157,23 @@ export interface AiChatResponse {
   updatedAt: string;
 }
 
+export interface AiChatOptions {
+  conversationId?: string | null;
+  contextGameId?: string | null;
+}
+
+export type AiStreamEvent =
+  | { type: 'delta'; content: string }
+  | {
+      type: 'done';
+      conversationId: string;
+      title: string;
+      updatedAt: string;
+      messages: AiMessage[];
+      messageCount: number;
+    }
+  | { type: 'error'; message: string };
+
 export interface AiSettings {
   configured: boolean;
   apiKeyPreview: string;
@@ -388,15 +405,128 @@ export const recordRecentViewApi = async (gameId: string) => {
 /**
  * AI assistant chat API.
  */
-export const chatWithAiApi = async (messages: AiMessage[], conversationId?: string | null) => {
+export const chatWithAiApi = async (messages: AiMessage[], options: AiChatOptions = {}) => {
   try {
     const response = await api.post<ResultVO<AiChatResponse>>('/api/ai/chat', {
-      conversationId,
+      conversationId: options.conversationId,
+      contextGameId: options.contextGameId,
       messages,
     });
     return response.data;
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'AI assistant unavailable'));
+  }
+};
+
+const parseAiStreamEvent = (block: string): AiStreamEvent | null => {
+  const lines = block.split(/\r?\n/);
+  const eventType = lines
+    .find((line) => line.startsWith('event:'))
+    ?.slice('event:'.length)
+    .trim();
+  const data = lines
+    .filter((line) => line.startsWith('data:'))
+    .map((line) => line.slice('data:'.length).trim())
+    .join('\n');
+
+  if (!eventType || !data) {
+    return null;
+  }
+
+  const payload = JSON.parse(data) as Record<string, unknown>;
+
+  if (eventType === 'delta') {
+    return { type: 'delta', content: String(payload.content || '') };
+  }
+
+  if (eventType === 'done') {
+    const messages = Array.isArray(payload.messages) ? (payload.messages as AiMessage[]) : [];
+
+    return {
+      type: 'done',
+      conversationId: String(payload.conversationId || ''),
+      title: String(payload.title || ''),
+      updatedAt: String(payload.updatedAt || ''),
+      messages,
+      messageCount: Number(payload.messageCount || 0),
+    };
+  }
+
+  if (eventType === 'error') {
+    return { type: 'error', message: String(payload.message || 'AI assistant unavailable') };
+  }
+
+  return null;
+};
+
+export const streamChatWithAiApi = async (
+  messages: AiMessage[],
+  options: AiChatOptions = {},
+  onEvent: (event: AiStreamEvent) => void
+) => {
+  const token = getActiveStoredToken();
+  if (!token) {
+    throw new UnauthorizedError('Please log in first');
+  }
+
+  const response = await fetch('/api/ai/chat/stream', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      conversationId: options.conversationId,
+      contextGameId: options.contextGameId,
+      messages,
+    }),
+  });
+
+  if (response.status === 401) {
+    clearStoredToken({ reason: 'expired' });
+    throw new UnauthorizedError('Session expired. Please log in again.');
+  }
+
+  if (!response.ok) {
+    throw new Error((await response.text()) || 'AI assistant unavailable');
+  }
+
+  if (!response.body) {
+    throw new Error('AI streaming response unavailable');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  const flushEvents = (text: string) => {
+    const event = parseAiStreamEvent(text);
+    if (!event) {
+      return;
+    }
+
+    if (event.type === 'error') {
+      throw new Error(event.message);
+    }
+
+    onEvent(event);
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+
+    buffer += decoder.decode(value, { stream: true });
+    const blocks = buffer.split(/\r?\n\r?\n/);
+    buffer = blocks.pop() || '';
+    blocks.filter((block) => block.trim()).forEach(flushEvents);
+  }
+
+  buffer += decoder.decode();
+  if (buffer.trim()) {
+    flushEvents(buffer);
   }
 };
 

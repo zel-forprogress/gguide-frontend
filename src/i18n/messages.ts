@@ -46,6 +46,7 @@ export type MessageKey =
   | 'aiHistoryEmpty'
   | 'aiUntitledChat'
   | 'aiHistoryMessageCount'
+  | 'aiContextGameLabel'
   | 'aiRelaxPrompt'
   | 'aiStoryPrompt'
   | 'aiActionPrompt'
@@ -133,6 +134,7 @@ export type MessageKey =
   | 'overallRating'
   | 'downloadNow'
   | 'watchTrailer'
+  | 'askAiAboutGame'
   | 'backToList'
   | 'guestDetailTip'
   | 'gameIntroduction'
@@ -295,6 +297,7 @@ export const messages: Record<AppLocale, Messages> = {
     overallRating: '综合评分',
     downloadNow: '前往下载',
     watchTrailer: '观看预告',
+    askAiAboutGame: '询问 AI',
     backToList: '返回列表',
     guestDetailTip: '游客模式下也会记录最近查看；登录后还可以同步收藏和浏览记录。',
     gameIntroduction: '游戏简介',
@@ -455,6 +458,7 @@ export const messages: Record<AppLocale, Messages> = {
     overallRating: 'Overall Rating',
     downloadNow: 'Open Store',
     watchTrailer: 'Watch Trailer',
+    askAiAboutGame: 'Ask AI',
     backToList: 'Back to list',
     guestDetailTip: 'Recent views are still tracked in guest mode. Log in to sync favorites and browsing history.',
     gameIntroduction: 'Overview',

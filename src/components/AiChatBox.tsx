@@ -2,9 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLocale } from '../i18n/useLocale';
 import {
-  chatWithAiApi,
   getAiConversationApi,
   getAppErrorMessage,
+  streamChatWithAiApi,
   type AiConversationSummary,
   type AiMessage,
 } from '../services/api';
@@ -14,12 +14,22 @@ interface AiChatBoxProps {
   onClose: () => void;
   layout?: 'floating' | 'panel';
   conversationId?: string | null;
+  contextGameId?: string | null;
+  contextGameTitle?: string | null;
   onConversationSaved?: (conversation: AiConversationSummary) => void;
 }
 
 type ChatMessage = AiMessage & {
   action?: 'login';
 };
+
+const STREAM_RENDER_DELAY_MS = 16;
+const STREAM_RENDER_CHUNK_SIZE = 6;
+
+const wait = (milliseconds: number) =>
+  new Promise((resolve) => {
+    window.setTimeout(resolve, milliseconds);
+  });
 
 const renderInlineMarkdown = (text: string) =>
   text.split(/(\*\*[^*]+\*\*)/g).map((part, index) => {
@@ -125,6 +135,8 @@ const AiChatBox: React.FC<AiChatBoxProps> = ({
   onClose,
   layout = 'panel',
   conversationId = null,
+  contextGameId = null,
+  contextGameTitle = null,
   onConversationSaved,
 }) => {
   const navigate = useNavigate();
@@ -136,6 +148,10 @@ const AiChatBox: React.FC<AiChatBoxProps> = ({
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const hasStartedChat = messages.length > 0 || isLoading;
   const modeClass = hasStartedChat ? 'is-chat' : 'is-empty';
+  const isStreamingAnswer =
+    isLoading &&
+    messages[messages.length - 1]?.role === 'assistant' &&
+    Boolean(messages[messages.length - 1]?.content);
 
   useEffect(() => {
     setCurrentConversationId(conversationId);
@@ -212,33 +228,91 @@ const AiChatBox: React.FC<AiChatBoxProps> = ({
       return;
     }
 
-    try {
-      const response = await chatWithAiApi(
-        nextMessages.map(({ role, content }) => ({ role, content })),
-        currentConversationId
-      );
-      if (response.code !== 200) {
-        throw new Error(response.message);
+    let assistantContent = '';
+    let queuedContent = '';
+    let isConsumingQueue = false;
+    let streamFinished = false;
+    let hasStreamError = false;
+    let doneConversation: AiConversationSummary | null = null;
+    let resolveQueue: (() => void) | null = null;
+    const queueDrained = new Promise<void>((resolve) => {
+      resolveQueue = resolve;
+    });
+
+    const finishIfReady = () => {
+      if (queuedContent.length > 0 || isConsumingQueue || !streamFinished) {
+        return;
       }
 
-      const savedConversationId = response.data.conversationId;
-      setCurrentConversationId(savedConversationId);
-      setMessages(response.data.messages || [
-        ...nextMessages,
-        { role: 'assistant', content: response.data.response },
-      ]);
-      onConversationSaved?.({
-        id: savedConversationId,
-        title: response.data.title,
-        updatedAt: response.data.updatedAt,
-        messageCount: response.data.messages?.length || nextMessages.length + 1,
-      });
+      if (doneConversation) {
+        onConversationSaved?.(doneConversation);
+      }
+      resolveQueue?.();
+      resolveQueue = null;
+    };
+
+    const consumeQueuedContent = async () => {
+      if (isConsumingQueue) {
+        return;
+      }
+
+      isConsumingQueue = true;
+
+      while (queuedContent.length > 0 && !hasStreamError) {
+        const nextChunk = queuedContent.slice(0, STREAM_RENDER_CHUNK_SIZE);
+        queuedContent = queuedContent.slice(nextChunk.length);
+        assistantContent += nextChunk;
+        setMessages([...nextMessages, { role: 'assistant', content: assistantContent }]);
+        await wait(STREAM_RENDER_DELAY_MS);
+      }
+
+      isConsumingQueue = false;
+      finishIfReady();
+    };
+
+    try {
+      setMessages([...nextMessages, { role: 'assistant', content: '' }]);
+
+      await streamChatWithAiApi(
+        nextMessages.map(({ role, content }) => ({ role, content })),
+        {
+          conversationId: currentConversationId,
+          contextGameId,
+        },
+        (event) => {
+          if (event.type === 'delta') {
+            queuedContent += event.content;
+            void consumeQueuedContent();
+            return;
+          }
+
+          if (event.type === 'done') {
+            const savedConversationId = event.conversationId;
+            setCurrentConversationId(savedConversationId);
+            doneConversation = {
+              id: savedConversationId,
+              title: event.title,
+              updatedAt: event.updatedAt,
+              messageCount: event.messageCount || event.messages.length || nextMessages.length + 1,
+            };
+            finishIfReady();
+          }
+        }
+      );
+
+      streamFinished = true;
+      finishIfReady();
+      await queueDrained;
     } catch (error: unknown) {
+      hasStreamError = true;
+      queuedContent = '';
       setMessages([
         ...nextMessages,
         {
           role: 'assistant',
-          content: `${t('aiErrorPrefix')}${getAppErrorMessage(error, 'AI assistant unavailable')}`,
+          content: assistantContent
+            ? `${assistantContent}\n\n${t('aiErrorPrefix')}${getAppErrorMessage(error, 'AI assistant unavailable')}`
+            : `${t('aiErrorPrefix')}${getAppErrorMessage(error, 'AI assistant unavailable')}`,
         },
       ]);
     } finally {
@@ -255,10 +329,11 @@ const AiChatBox: React.FC<AiChatBoxProps> = ({
 
   const renderInput = (variant: 'empty' | 'chat') => (
     <div className={`ai-chat-input-area ${variant === 'empty' ? 'is-empty-input' : ''}`}>
-      {variant === 'empty' ? (
-        <button className="ai-input-tool-btn" type="button" aria-label={t('aiAddAction')}>
-          +
-        </button>
+      {contextGameId && contextGameTitle ? (
+        <span className="ai-context-chip" title={contextGameTitle}>
+          <span>{t('aiContextGameLabel')}</span>
+          <strong>{contextGameTitle}</strong>
+        </span>
       ) : null}
       <textarea
         placeholder={variant === 'empty' ? t('aiEmptyPlaceholder') : t('aiChatPlaceholder')}
@@ -315,7 +390,7 @@ const AiChatBox: React.FC<AiChatBoxProps> = ({
               </div>
             ))}
 
-            {isLoading ? (
+            {isLoading && !isStreamingAnswer ? (
               <div className="ai-message-wrapper assistant">
                 <div className="ai-message-avatar">AI</div>
                 <div className="ai-message-content loading">

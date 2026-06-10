@@ -101,6 +101,20 @@ const GameDetailPage = () => {
   const canManageComment = (comment: GameComment) =>
     Boolean(currentUser && (currentUser.admin || currentUser.username === comment.username));
 
+  const handleAskAiAboutGame = () => {
+    if (!game) {
+      return;
+    }
+
+    navigate('/', {
+      state: {
+        view: 'ai',
+        contextGameId: game.id,
+        contextGameTitle: game.title,
+      },
+    });
+  };
+
   useEffect(() => {
     const unsubscribe = subscribeAuthExpired(() => {
       setIsLoggedIn(false);
@@ -503,6 +517,9 @@ const GameDetailPage = () => {
                   loading={favoriteLoading}
                   onClick={() => void handleToggleFavorite()}
                 />
+                <button className="detail-secondary-btn" onClick={handleAskAiAboutGame}>
+                  {t('askAiAboutGame')}
+                </button>
                 {game.downloadLink ? (
                   <a
                     className="detail-primary-btn"
