@@ -44,6 +44,7 @@ export const getAppErrorMessage = (error: unknown, fallback: string) =>
 export const isUnauthorizedError = (error: unknown) => error instanceof UnauthorizedError;
 
 const api = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || '',
   timeout: 60000, // Keep enough time for AI responses.
   headers: {
     'Content-Type': 'application/json',
