@@ -470,7 +470,8 @@ export const streamChatWithAiApi = async (
     throw new UnauthorizedError('Please log in first');
   }
 
-  const response = await fetch('/api/ai/chat/stream', {
+  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
+  const response = await fetch(`${baseURL}/api/ai/chat/stream`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
